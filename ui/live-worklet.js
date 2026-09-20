@@ -23,6 +23,11 @@ class LiveProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
     this.voices = new Map();
+    // Events with a time in the future wait here. Scheduling from the main
+    // thread with setTimeout would put several milliseconds of jitter on every
+    // note, which is audible on anything with a sharp attack; the worklet has
+    // the audio clock, so it does the waiting.
+    this.pending = [];
     this.echo = null;
     this.echoSend = 0;
     this.port.onmessage = (e) => this.handle(e.data);
@@ -30,6 +35,11 @@ class LiveProcessor extends AudioWorkletProcessor {
   }
 
   handle(m) {
+    if (m.at !== undefined && m.at > currentTime) { this.pending.push(m); return; }
+    this.fire(m);
+  }
+
+  fire(m) {
     switch (m.type) {
       case 'on': {
         const { inst } = instrumentFor(m.inst, m.era);
@@ -45,12 +55,21 @@ class LiveProcessor extends AudioWorkletProcessor {
         break;
       case 'panic':
         this.voices.clear();
+        this.pending.length = 0;
         break;
       default:
     }
   }
 
   process(inputs, outputs) {
+    if (this.pending.length) {
+      // Anything due within this block fires now. A block is 2.9 ms, which is
+      // below what anyone hears as early or late.
+      const due = currentTime + 128 / sampleRate;
+      for (let i = this.pending.length - 1; i >= 0; i--) {
+        if (this.pending[i].at <= due) this.fire(this.pending.splice(i, 1)[0]);
+      }
+    }
     const out = outputs[0];
     const L = out[0];
     const R = out.length > 1 ? out[1] : out[0];
@@ -58,7 +77,7 @@ class LiveProcessor extends AudioWorkletProcessor {
     L.fill(0);
     if (R !== L) R.fill(0);
 
-    if (this.voices.size) {
+    if (this.voices.size || this.pending.length) {
       const S = this.echoSend ? (this.send ||= new Float32Array(n)) : null;
       if (S) S.fill(0);
       for (const [id, v] of this.voices) {

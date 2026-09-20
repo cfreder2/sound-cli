@@ -187,6 +187,14 @@
     font:600 12px/1 var(--mono);letter-spacing:.1em;padding:9px 15px;cursor:pointer}
   .recbtn.on{background:var(--hot);color:#2a0a06}
   .kstat{font:11px/1.5 var(--mono);color:var(--dim);min-height:1.5em}
+  .ii{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;
+    border:1px solid var(--line);border-radius:50%;background:var(--panel);color:var(--dim);
+    font:9px/1 var(--mono);cursor:help;margin-left:5px;vertical-align:middle;flex:none;padding:0}
+  .ii:hover,.ii.on{border-color:var(--b);color:var(--b)}
+  .pop{position:fixed;z-index:300;max-width:300px;background:var(--panel2);color:#d6e0e8;
+    border:1px solid var(--b);border-radius:7px;padding:10px 12px;font:11.5px/1.55 var(--mono);
+    box-shadow:0 8px 24px rgba(0,0,0,.6)}
+  .pop b{color:var(--b);font-weight:400;display:block;margin-bottom:4px;letter-spacing:.08em}
   .kstat b{color:var(--good);font-weight:400}
   #err{display:none;position:fixed;left:12px;right:12px;bottom:12px;z-index:200;max-height:38vh;overflow:auto;
     border:1px solid var(--hot);border-radius:8px;background:#1b0f0d;color:#ffd9d3;
@@ -1088,16 +1096,13 @@ function fxCard(f) {
 // ------------------------------------------------------------------- keys --
 
 // Tracker layout: two rows of the computer keyboard are two octaves, which is
-// what every chip tracker has used since Protracker and what anybody who has
-// used one already has in their fingers.
+// what every chip tracker has used since Protracker.
 //
 //   Q 2 W 3 E R 5 T 6 Y 7 U    upper octave
 //   Z S X D C V G B H N J M    lower octave
 //
-// Keyed on `code`, not `key`: `code` is the PHYSICAL key, so the shape stays
-// under the same fingers on AZERTY and Dvorak. Keying on the character would
-// scramble it -- on AZERTY the key where Z sits reports 'w', which would land
-// a whole octave and a tone away from where the finger is.
+// Keyed on `code`, the PHYSICAL key, so the shape stays under the same fingers
+// on AZERTY and Dvorak. Keying on the character would scramble it.
 const KEYMAP = {
   KeyZ: 0, KeyS: 1, KeyX: 2, KeyD: 3, KeyC: 4, KeyV: 5,
   KeyG: 6, KeyB: 7, KeyH: 8, KeyN: 9, KeyJ: 10, KeyM: 11,
@@ -1112,6 +1117,8 @@ const WHITE_PC = [0, 2, 4, 5, 7, 9, 11];
 const BLACK_OFF = { 1: 0.68, 3: 1.68, 6: 3.68, 8: 4.68, 10: 5.68 };
 
 let kbOctave = 4;
+let takeBpm = 104;
+let takeGrid = 1;
 let kbInst = 'lead';
 let midiAccess = null;
 let midiInput = null;
@@ -1119,6 +1126,98 @@ const kbEls = new Map();
 
 function litKey(semi, on) {
   kbEls.get(semi)?.classList.toggle('on', on);
+}
+
+/**
+ * A small (i) with a short factual note.
+ *
+ * Every control on this tab is a word from music software that means nothing
+ * outside it. Explaining them in a paragraph above the controls is what the
+ * deleted Layering tab did; putting one sentence next to the control is what
+ * actually gets read.
+ */
+let openPop = null;
+function info(title, text) {
+  const b = el('button', 'ii', 'i');
+  b.type = 'button';
+  b.setAttribute('aria-label', `What is ${title}?`);
+  b.onclick = (ev) => {
+    ev.stopPropagation();
+    if (openPop) { openPop.remove(); openPop = null; }
+    if (b.classList.contains('on')) { b.classList.remove('on'); return; }
+    document.querySelectorAll('.ii.on').forEach((x) => x.classList.remove('on'));
+    b.classList.add('on');
+    const pop = el('div', 'pop', `<b>${esc(title)}</b>${esc(text)}`);
+    document.body.append(pop);
+    const r = b.getBoundingClientRect();
+    pop.style.left = `${Math.min(r.left, innerWidth - pop.offsetWidth - 14)}px`;
+    pop.style.top = `${r.bottom + 7}px`;
+    openPop = pop;
+  };
+  return b;
+}
+addEventListener('click', () => {
+  if (openPop) { openPop.remove(); openPop = null; }
+  document.querySelectorAll('.ii.on').forEach((x) => x.classList.remove('on'));
+});
+
+const HELP = {
+  sound: ['SOUND', 'Which instrument the keys play. A take records the NOTES, not the sound '
+    + '-- you can change the instrument afterwards by editing one word in the score.'],
+  oct: ['OCTAVE', 'Shifts the whole keyboard up or down by twelve semitones. The label is the '
+    + 'lowest note on the left-hand key.'],
+  midi: ['MIDI', 'A connected MIDI keyboard plays and records exactly like the on-screen one. '
+    + 'How hard you hit a key sets how loud the note is.'],
+  rec: ['REC', 'Starts after the count-in, then captures everything you play until you press '
+    + 'STOP. The take comes back as a score you can hear, copy or download.'],
+  bpm: ['BPM', 'Beats per minute. It does NOT record your tempo -- it is the ruler your '
+    + 'playing is measured against, so notes land on beats instead of between them. Change it '
+    + 'after recording and the take re-fits; FIT offers the tempi that match what you played. '
+    + 'There is usually more than one, because eighths at 120 and sixteenths at 60 are the '
+    + 'same performance.'],
+  snap: ['SNAP', 'How finely notes are placed on the grid. 1/16 keeps sixteenth-note detail; '
+    + '1/4 moves every note to the nearest beat. Coarser is more forgiving and loses more feel.'],
+  countin: ['COUNT-IN', 'Bars of clicks before recording starts, so you can find the tempo '
+    + 'before the first note rather than during it.'],
+  click: ['CLICK', 'The metronome. One tick per beat while recording, accented on beat one. '
+    + 'It is never recorded -- it only exists so you have something to play against.'],
+};
+
+/**
+ * Tempi that fit what was played.
+ *
+ * Returns candidates, not an answer, because there is no answer. Eighth notes
+ * at 120 and sixteenth notes at 60 are the same performance -- the onsets are
+ * identical and nothing in them says which one you meant. Any detector that
+ * returns a single number is guessing, and on a spread of test takes the
+ * obvious scoring picked half-time four times out of six.
+ *
+ * So: take the median gap between notes, treat it as each plausible
+ * subdivision of a beat, keep the tempi that land in a range people play in,
+ * and let the person choose. Ordered by closeness to 110 BPM, which is only a
+ * starting guess and is labelled as one.
+ */
+function fitCandidates(events) {
+  const onsets = [...new Set(events.map((e) => Math.round(e.start * 1000) / 1000))]
+    .filter((t) => t >= 0).sort((a, b) => a - b);
+  if (onsets.length < 4) return [];
+  const gaps = [];
+  for (let i = 1; i < onsets.length; i++) {
+    const g = onsets[i] - onsets[i - 1];
+    if (g > 0.05) gaps.push(g);
+  }
+  if (gaps.length < 3) return [];
+  gaps.sort((a, b) => a - b);
+  const med = gaps[gaps.length >> 1];
+
+  const out = [];
+  for (const mult of [0.5, 1, 2, 3, 4, 6, 8]) {
+    const bpm = Math.round(60 / (med * mult));
+    if (bpm < 55 || bpm > 200) continue;
+    if (out.some((b) => Math.abs(b - bpm) < 3)) continue;
+    out.push(bpm);
+  }
+  return out.sort((a, b) => Math.abs(Math.log2(a / 110)) - Math.abs(Math.log2(b / 110)));
 }
 
 function keysView() {
@@ -1147,28 +1246,37 @@ function keysView() {
   const midiSel = el('select');
   midiSel.append(Object.assign(el('option', null, 'MIDI: none'), { value: '' }));
   midiSel.onchange = () => attachMidi(midiSel.value);
-  row1.append(el('span', 'meta', 'SOUND'), instSel, octDown, octLabel, octUp,
-    el('span', 'meta', '·'), midiSel);
+  row1.append(el('span', 'meta', 'SOUND'), info(...HELP.sound), instSel,
+    octDown, octLabel, octUp, info(...HELP.oct),
+    el('span', 'meta', '·'), midiSel, info(...HELP.midi));
   c.append(row1);
 
   // --- record --------------------------------------------------------------
+  //
+  // Just REC and a click. BPM and snapping are not recording settings -- they
+  // are how a take gets written into a score afterwards -- so they live down
+  // with the score, not up here where they look like things you must set
+  // before you are allowed to play.
   const row2 = el('div', 'rec');
-  const recBtn = el('button', 'recbtn', '● REC');
-  const bpm = el('input'); bpm.type = 'number'; bpm.value = '104'; bpm.min = '40'; bpm.max = '220';
-  const grid = el('select');
-  for (const [v, t] of [[1, '1/16'], [2, '1/8'], [4, '1/4']]) {
-    const o = el('option', null, t); o.value = String(v); grid.append(o);
-  }
+  const recBtn = el('button', 'recbtn', '\u25cf REC');
+  const metro = el('button', 'btn tiny', 'CLICK');
+  let metroOn = false;
+  metro.onclick = () => { metroOn = !metroOn; metro.classList.toggle('on', metroOn); };
   const countIn = el('select');
   for (const [v, t] of [[0, 'no count-in'], [1, '1 bar in'], [2, '2 bars in']]) {
     const o = el('option', null, t); o.value = String(v);
-    if (v === 1) o.selected = true;
     countIn.append(o);
   }
-  const metro = el('button', 'btn tiny on', 'CLICK');
-  let metroOn = true;
-  metro.onclick = () => { metroOn = !metroOn; metro.classList.toggle('on', metroOn); };
-  row2.append(recBtn, el('span', 'meta', 'BPM'), bpm, el('span', 'meta', 'SNAP'), grid, countIn, metro);
+  const clickBpm = el('input');
+  clickBpm.type = 'number'; clickBpm.value = '104'; clickBpm.min = '40'; clickBpm.max = '220';
+  clickBpm.style.display = 'none';
+  const showClickOpts = () => {
+    const on = metroOn || +countIn.value > 0;
+    clickBpm.style.display = on ? '' : 'none';
+  };
+  metro.addEventListener('click', showClickOpts);
+  countIn.onchange = showClickOpts;
+  row2.append(recBtn, info(...HELP.rec), metro, info(...HELP.click), countIn, info(...HELP.countin), clickBpm);
   c.append(row2);
 
   const stat = el('div', 'kstat', 'Ready. Press a key.');
@@ -1214,44 +1322,113 @@ function keysView() {
   const stopNote = (semi) => { noteOff(kbOctave * 12 + 12 + semi); litKey(semi, false); };
   kbPlay = play; kbStop = stopNote;
 
+  let takePlaying = false;
+  const playTake = async () => {
+    if (!rec.events.length) return;
+    const node = await ensureLive();
+    const c2 = audio();
+    const at0 = c2.currentTime + 0.12;
+    const e0 = era();
+    let vid = 900000;
+    for (const ev of rec.events) {
+      const idv = vid += 1;
+      node.port.postMessage({ type: 'on', id: idv, note: ev.note, inst: kbInst, era: e0, gain: 0.25, at: at0 + ev.start });
+      node.port.postMessage({ type: 'off', id: idv, at: at0 + ev.end });
+    }
+    takePlaying = true;
+    const last = Math.max(...rec.events.map((x) => x.end));
+    setTimeout(() => { takePlaying = false; }, (last + 1.2) * 1000);
+  };
+
   const showTake = () => {
     outBox.innerHTML = '';
-    const q = quantise(rec.events, {
-      bpm: +bpm.value, beats: 16, grid: +grid.value,
-    });
-    if (!q.voices.length) { stat.textContent = 'Nothing recorded.'; return; }
-    const text = toScore(q, {
-      id: 'take', era: era(), inst: kbInst, mix: 0.2,
-      note: `Recorded ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
-    });
-    stat.innerHTML = `<b>${rec.events.length} notes</b> · ${q.bars} bars · `
-      + `${q.voices.length} voice${q.voices.length > 1 ? 's' : ''}`
-      + (q.dropped ? ` · ${q.dropped} dropped (more than 4 at once)` : '');
-    const bar = el('div', 'rec');
-    const copy = el('button', 'btn tiny', 'COPY');
-    copy.onclick = () => { navigator.clipboard?.writeText(text); copy.textContent = 'COPIED'; setTimeout(() => { copy.textContent = 'COPY'; }, 1200); };
-    const dl = el('button', 'btn tiny', 'DOWNLOAD .snd');
-    dl.onclick = () => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
-      a.download = 'take.snd';
-      a.click();
+    if (!rec.events.length) { stat.textContent = 'Nothing recorded.'; return; }
+    const len = Math.max(...rec.events.map((x) => x.end));
+    stat.innerHTML = `<b>${rec.events.length} notes</b> \u00b7 ${len.toFixed(1)}s`;
+
+    // What you played, at the speed you played it. No grid involved.
+    const row = el('div', 'rec');
+    const pb = el('button', 'btn', '\u25b6 PLAY BACK');
+    pb.onclick = playTake;
+    const again = el('button', 'btn tiny', 'CLEAR');
+    again.onclick = () => { rec.events = []; outBox.innerHTML = ''; stat.textContent = 'Ready. Press a key.'; };
+    row.append(pb, again, el('span', 'meta', 'exactly as played'));
+    outBox.append(row);
+
+    // Turning it into a score is a separate step, because a score is a GRID --
+    // it can only hold notes on steps, so the timing you played gets rounded.
+    const det = el('details');
+    det.append(el('summary', null, 'save it as a score (rounds the timing to a grid)'));
+    const box = el('div');
+    det.append(box);
+    outBox.append(det);
+
+    const opts = el('div', 'rec');
+    const bpm = el('input'); bpm.type = 'number'; bpm.min = '40'; bpm.max = '220';
+    bpm.value = String(takeBpm);
+    const fit = el('button', 'btn tiny', 'FIT');
+    fit.title = 'Cycle the tempi that fit what you played';
+    const grid = el('select');
+    for (const [v, t] of [[1, '1/16'], [2, '1/8'], [4, '1/4']]) {
+      const o = el('option', null, t); o.value = String(v);
+      if (v === takeGrid) o.selected = true;
+      grid.append(o);
+    }
+    const note = el('div', 'kstat', '');
+    opts.append(el('span', 'meta', 'BPM'), info(...HELP.bpm), bpm, fit,
+      el('span', 'meta', 'SNAP'), info(...HELP.snap), grid);
+    box.append(opts, note);
+    const out = el('div');
+    box.append(out);
+
+    const build = () => {
+      takeBpm = +bpm.value; takeGrid = +grid.value;
+      const q = quantise(rec.events, { bpm: takeBpm, beats: 16, grid: takeGrid });
+      const text = toScore(q, {
+        id: 'take', era: era(), inst: kbInst, mix: 0.2,
+        note: `Recorded ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
+      });
+      const cands = fitCandidates(rec.events);
+      const off = cands.length && !cands.some((x) => Math.abs(x - takeBpm) <= 3);
+      note.innerHTML = `${q.bars} bars \u00b7 ${q.voices.length} voice${q.voices.length > 1 ? 's' : ''}`
+        + (q.dropped ? ` \u00b7 ${q.dropped} dropped (more than 4 at once)` : '')
+        + (cands.length ? ` \u00b7 fits ${cands.join(' / ')} BPM` : '')
+        + (off ? ' \u00b7 <span style="color:var(--a)">current BPM is not one of them</span>' : '');
+      out.innerHTML = '';
+      const bar = el('div', 'rec');
+      const hear = el('button', 'btn tiny', '\u25b6 HEAR THE SCORE');
+      hear.onclick = async () => {
+        try {
+          const bufs = await buffers('track', `take-${takeBpm}-${takeGrid}-${rec.events.length}`, {}, null, text);
+          const n2 = audio().createBufferSource();
+          n2.buffer = bufs[ERAS.indexOf(era())];
+          n2.connect(master); n2.start();
+        } catch (e) { fail('playing the score', e); }
+      };
+      const copy = el('button', 'btn tiny', 'COPY');
+      copy.onclick = () => { navigator.clipboard?.writeText(text); copy.textContent = 'COPIED'; setTimeout(() => { copy.textContent = 'COPY'; }, 1200); };
+      const dl = el('button', 'btn tiny', 'DOWNLOAD .snd');
+      dl.onclick = () => {
+        const a2 = document.createElement('a');
+        a2.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+        a2.download = 'take.snd';
+        a2.click();
+      };
+      bar.append(hear, copy, dl);
+      out.append(bar, el('pre', null, esc(text)));
     };
-    const hear = el('button', 'btn tiny', '▶ HEAR IT');
-    hear.onclick = async () => {
-      try {
-        const bufs = await buffers('track', `take-${Date.now()}`, {}, null, text);
-        const n = audio().createBufferSource();
-        n.buffer = bufs[ERAS.indexOf(era())];
-        n.connect(master); n.start();
-      } catch (e) { fail('playing the take', e); }
+    bpm.oninput = build;
+    grid.onchange = build;
+    let fitAt = 0;
+    fit.onclick = () => {
+      const cands = fitCandidates(rec.events);
+      if (!cands.length) { note.textContent = 'No steady pulse in that take to fit to.'; return; }
+      bpm.value = String(cands[fitAt % cands.length]);
+      fitAt += 1;
+      build();
     };
-    bar.append(hear, copy, dl);
-    outBox.append(bar);
-    const pre = el('pre', null, esc(text));
-    outBox.append(pre);
+    build();
   };
-  rec.onChange = () => { if (!rec.running) showTake(); };
 
   recBtn.onclick = async () => {
     if (rec.running) {
@@ -1263,7 +1440,7 @@ function keysView() {
     }
     await ensureLive();
     const c2 = audio();
-    const beat = 60 / +bpm.value;
+    const beat = 60 / +clickBpm.value;
     const bars = +countIn.value;
     const at = c2.currentTime + 0.12;
     if (metroOn || bars) {
