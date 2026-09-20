@@ -111,14 +111,15 @@ and two originals.
 | `runner` | Original stage theme, native 8-bit. Sections, fills, sweeps, an arrangement |
 | `layers` | **A teaching track.** Four bars, six times, one more voice each pass |
 
-**Effects** — 72, each defining both eras in the same file. The previewer has a
+**Effects** — 82, each defining both eras in the same file. The previewer has a
 search box (`/` to focus) that filters on name, description and tags.
 
 | | |
 | --- | --- |
 | water | `splash` `splash-small` `splash-big` `drip` `drips` `bubble` `bubbles` `underwater` `pour` `wave` `swim` `thud-wet` |
 | impact | `thud` `thud-heavy` `metal` `wood` `glass` `land` `stomp` |
-| weapons | `laser` `machinegun` `shotgun` `reload` `ricochet` `shell` `rocket` `explosion` |
+| weapons | `laser` `machinegun` `shotgun` `reload` `ricochet` `shell` `rocket` |
+| explosions | `explosion` `-small` `-huge` `-distant` `-mine` `-barrel` `-plasma` `-underwater` `-chain` `-debris` `-firework` |
 | fighting | `punch` `block` `slash` `ko` |
 | platformer | `jump` `bounce` `dash` `coin` `checkpoint` `footstep` |
 | rpg / magic | `levelup` `spell` `sparkle` `chest` `potion` `heal` `powerup` |
@@ -129,6 +130,13 @@ search box (`/` to focus) that filters on name, description and tags.
 | strategy | `build` |
 | arcade | `gameover` `extralife` `hurt` `death` |
 | ambience | `fire` `wind` `door` |
+
+The eleven explosions differ by mechanism, not by gain. `-mine` is 79% of its
+energy in the first 20 ms with a 0.05 s tail; `-distant` has no transient at
+all and 91% of its energy below 200 Hz, because air absorbs high frequencies
+over distance; `-underwater` has 0.5% above 2 kHz; `-plasma` is tonal where the
+rest are broadband; `-huge` runs 3.65 s. `-debris` is the aftermath on its own,
+meant to be fired 200 ms behind any of the others.
 
 ## Levels, and why `mix=` means something
 
