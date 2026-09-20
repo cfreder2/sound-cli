@@ -144,6 +144,34 @@ the near shells measure 31% above 3 kHz while the far ones measure **0.0%**,
 and per-layer `send=` makes the far ones mostly reflection — which is what puts
 them *behind* the near ones rather than merely under them.
 
+## Instruments
+
+34: eleven 8-bit, twenty-three 16-bit. `sound instruments` lists them,
+`sound explain <name>` prints one's layers, and the Instruments tab in the
+previewer plays a short phrase on any of them.
+
+8-bit is close to complete by definition — the 2A03 had two pulse channels,
+a triangle and noise, and all three duty cycles are here, plus `noise-lead`
+(short-mode noise resampled to track pitch, which is a real melodic voice on
+that chip) and `dpcm` (five-bit quantisation, like the DMC channel).
+
+16-bit covers brass (`brass`, `horn`), winds (`flute`, `clarinet`, `oboe`),
+voice (`choir`), plucked (`harp`, `guitar`, `pluck`, `epiano`), tuned
+percussion (`marimba`, `vibes`, `glock`, `timpani`, `fm-bell`), keys (`piano`,
+`organ`), strings, pads and three basses.
+
+Measured harmonic content on a sustained A3 — `clarinet` is a 50% pulse, and a
+50% pulse has no even harmonics, which is why its second is 0%:
+
+| | fundamental | 2nd | 3rd | 1–6 kHz |
+| --- | --- | --- | --- | --- |
+| `flute` | 97% | 3% | 0% | 0% |
+| `clarinet` | 86% | **0%** | 6% | 7% |
+| `oboe` | 42% | 26% | 14% | 18% |
+| `horn` | 27% | **61%** | 10% | 2% |
+| `brass` | 41% | 45% | 11% | 4% |
+| `slap` | 56% | 4% | 15% | **25%** |
+
 ## Levels, and why `mix=` means something
 
 Every instrument carries a `trim`: a calibration that brings it to a common

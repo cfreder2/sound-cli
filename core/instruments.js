@@ -55,7 +55,7 @@ export const INSTRUMENTS = {
   // down in fifteen steps. Both are audible and both are the point.
 
   pulse12: {
-    era: '8bit', trim: 0.294, quantize: true, env: 'nes',
+    era: '8bit', trim: 0.276, quantize: true, env: 'nes',
     desc: 'Pulse, 12.5% duty. Thin and nasal.',
     layers: [{ osc: 'pulse', duty: 0.125, gain: 1 }],
   },
@@ -205,6 +205,177 @@ export const INSTRUMENTS = {
       { osc: 'noise', bed: 'white', gain: 0.1, hold: 0.008 },
     ],
   },
+  // --- 8-bit: two techniques the duty cycles do not cover -------------------
+
+  'noise-lead': {
+    era: '8bit', trim: 0.166, quantize: true, env: 'nes',
+    desc: 'Short-mode noise, resampled to track pitch. A melodic voice on the 2A03.',
+    layers: [{ osc: 'noise', bed: 'metal', gain: 1, pitched: true }],
+  },
+  dpcm: {
+    era: '8bit', trim: 0.462, quantize: true, env: 'nes', cut: 2400,
+    desc: 'A crushed sampled voice: five-bit quantisation, like the DMC channel.',
+    layers: [
+      { osc: 'nestri', gain: 0.8, crush: 5 },
+      { osc: 'pulse', duty: 0.25, gain: 0.3, crush: 5 },
+    ],
+  },
+
+  // --- 16-bit: brass --------------------------------------------------------
+
+  brass: {
+    era: '16bit', trim: 0.325, env: { a: 0.035, d: 0.10, s: 0.82, r: 0.12 }, cut: 6000,
+    desc: 'FM brass section. The modulator decays fast, so the attack is brighter than the body.',
+    fm: {
+      algo: 'brass',
+      ops: [op(1, 1, 0.02, 0.09, 0.85, 0.12), op(1, 0.62, 0.005, 0.07, 0.28, 0.08),
+        op(2.01, 0.35, 0.03, 0.12, 0.70, 0.12), op(1, 0, 0, 0, 0, 0)],
+    },
+    layers: [{ osc: 'fm', gain: 1 }],
+  },
+  horn: {
+    era: '16bit', trim: 0.41, env: { a: 0.07, d: 0.15, s: 0.85, r: 0.20 }, cut: 3000,
+    desc: 'A mellow horn: the same algorithm as brass with half the modulation.',
+    fm: {
+      algo: 'brass',
+      ops: [op(1, 1, 0.05, 0.12, 0.88, 0.20), op(1, 0.30, 0.02, 0.10, 0.35, 0.10),
+        op(1.004, 0.40, 0.06, 0.15, 0.80, 0.20), op(1, 0, 0, 0, 0, 0)],
+    },
+    layers: [{ osc: 'fm', gain: 1 }],
+  },
+
+  // --- 16-bit: winds. A reed is a waveform and a formant ---------------------
+
+  flute: {
+    era: '16bit', trim: 0.261, env: { a: 0.055, d: 0.12, s: 0.88, r: 0.12 },
+    cut: 5000, eq: { f: 1200, q: 1.0, gain: 4 },
+    desc: 'Sine, an octave above it, and continuous breath noise.',
+    layers: [
+      { osc: 'sine', gain: 0.85 },
+      { osc: 'sine', semi: 12, gain: 0.14 },
+      { osc: 'noise', bed: 'white', gain: 0.035 },
+    ],
+  },
+  clarinet: {
+    era: '16bit', trim: 0.161, env: { a: 0.030, d: 0.08, s: 0.90, r: 0.10 },
+    cut: 3200, eq: { f: 1500, q: 1.4, gain: 5 },
+    desc: 'A 50% pulse, which has only odd harmonics -- the hollow reed.',
+    layers: [
+      { osc: 'pulse', duty: 0.5, gain: 0.8 },
+      { osc: 'sine', gain: 0.2 },
+      { osc: 'noise', bed: 'white', gain: 0.02 },
+    ],
+  },
+  oboe: {
+    era: '16bit', trim: 0.308, env: { a: 0.028, d: 0.09, s: 0.86, r: 0.10 },
+    cut: 5200, eq: { f: 1400, q: 2.2, gain: 8 },
+    desc: 'A narrow 18% pulse under a sharp formant. Same reed as clarinet, different peak.',
+    layers: [
+      { osc: 'pulse', duty: 0.18, gain: 0.7 },
+      { osc: 'saw', gain: 0.18 },
+      { osc: 'noise', bed: 'white', gain: 0.022 },
+    ],
+  },
+
+  // --- 16-bit: voices and plucked ------------------------------------------
+
+  choir: {
+    era: '16bit', trim: 0.369, env: { a: 0.16, d: 0.30, s: 0.90, r: 0.35 },
+    cut: 3400, eq: { f: 800, q: 1.1, gain: 6 },
+    desc: 'Three saws at -11, +6 and +14 cents under a vowel formant, slow attack.',
+    layers: [
+      { osc: 'saw', detune: -11, gain: 0.40 },
+      { osc: 'saw', detune: 6, gain: 0.40 },
+      { osc: 'saw', detune: 14, gain: 0.30 },
+      { osc: 'sine', semi: -12, gain: 0.15 },
+    ],
+  },
+  harp: {
+    era: '16bit', trim: 0.658, env: { a: 0.002, d: 0.90, s: 0.05, r: 0.50 }, cut: 5200,
+    desc: 'Plucked, with a long decay and an 8 ms noise transient.',
+    layers: [
+      { osc: 'tri', gain: 0.6 },
+      { osc: 'saw', gain: 0.3 },
+      { osc: 'sine', semi: 12, gain: 0.15 },
+      { osc: 'noise', bed: 'white', gain: 0.05, hold: 0.008 },
+    ],
+  },
+  guitar: {
+    era: '16bit', trim: 0.768, env: { a: 0.003, d: 0.55, s: 0.12, r: 0.25 },
+    cut: 4000, eq: { f: 900, q: 1.0, gain: 4 },
+    desc: 'Saw and triangle with a body resonance at 900 Hz and a pick transient.',
+    layers: [
+      { osc: 'saw', gain: 0.6 },
+      { osc: 'tri', gain: 0.3 },
+      { osc: 'sine', semi: 12, gain: 0.12 },
+      { osc: 'noise', bed: 'white', gain: 0.055, hold: 0.009 },
+    ],
+  },
+  epiano: {
+    era: '16bit', trim: 0.304, env: { a: 0.002, d: 0.80, s: 0.20, r: 0.35 }, cut: 6500,
+    desc: 'Two-operator FM at 1:1 with a fast-decaying modulator. The DX electric piano.',
+    fm: {
+      algo: 'bass',
+      ops: [op(1, 1, 0.002, 0.70, 0.25, 0.30), op(1, 0.45, 0.002, 0.18, 0.06, 0.10, 0.10),
+        op(1, 0, 0, 0, 0, 0), op(1, 0, 0, 0, 0, 0)],
+    },
+    layers: [{ osc: 'fm', gain: 1 }, { osc: 'sine', semi: 12, gain: 0.10 }],
+  },
+
+  // --- 16-bit: tuned percussion --------------------------------------------
+
+  marimba: {
+    era: '16bit', trim: 0.879, env: { a: 0.002, d: 0.28, s: 0.0, r: 0.12 }, cut: 5000,
+    desc: 'Sine with a fast decay, an octave-and-a-fifth overtone, and a wood transient.',
+    layers: [
+      { osc: 'sine', gain: 0.9 },
+      { osc: 'sine', semi: 19, gain: 0.18 },
+      { osc: 'noise', bed: 'white', gain: 0.05, hold: 0.010 },
+    ],
+  },
+  vibes: {
+    era: '16bit', trim: 0.36, env: { a: 0.004, d: 1.10, s: 0.08, r: 0.60 }, cut: 6000,
+    desc: 'Sine with a one-second decay and two octave partials. No transient.',
+    layers: [
+      { osc: 'sine', gain: 0.85 },
+      { osc: 'sine', semi: 12, gain: 0.22 },
+      { osc: 'sine', semi: 24, gain: 0.06 },
+    ],
+  },
+  glock: {
+    era: '16bit', trim: 0.706, env: { a: 0.001, d: 0.50, s: 0.03, r: 0.30 }, cut: 11000,
+    desc: 'Struck metal an octave up, with partials at +24 and +31 semitones.',
+    layers: [
+      { osc: 'sine', semi: 12, gain: 0.7 },
+      { osc: 'sine', semi: 24, gain: 0.25 },
+      { osc: 'sine', semi: 31, gain: 0.10 },
+      { osc: 'noise', bed: 'white', gain: 0.04, hold: 0.006 },
+    ],
+  },
+  timpani: {
+    era: '16bit', trim: 0.397, env: { a: 0.002, d: 0.90, s: 0.0, r: 0.40 }, cut: 900,
+    desc: 'A pitched drum: low sine, a fifth above it, and a 20 ms head transient.',
+    layers: [
+      { osc: 'sine', gain: 0.9 },
+      { osc: 'sine', semi: 7, gain: 0.20 },
+      { osc: 'noise', bed: 'white', gain: 0.10, hold: 0.020 },
+    ],
+  },
+
+  // --- 16-bit: a second bass ------------------------------------------------
+
+  slap: {
+    era: '16bit', trim: 1.457, env: { a: 0.002, d: 0.22, s: 0.25, r: 0.12 },
+    cut: 3600, eq: { f: 1800, q: 1.6, gain: 7 },
+    desc: 'Percussive bass: saw and narrow pulse with a resonant peak and a pick transient.',
+    layers: [
+      { osc: 'saw', gain: 0.55 },
+      { osc: 'pulse', duty: 0.3, gain: 0.30 },
+      { osc: 'sine', semi: -12, gain: 0.25 },
+      { osc: 'noise', bed: 'white', gain: 0.07, hold: 0.012 },
+    ],
+  },
+
   'kit16': { era: '16bit', trim: 0.285, drums: '16bit', desc: 'Layered kit: body, snap and air.' },
 };
 
@@ -213,10 +384,15 @@ export const SUBSTITUTE = {
   '8bit': {
     'fm-lead': 'lead', 'fm-bass': 'bass', 'fm-bell': 'pulse12', strings: 'pulse50',
     pad: 'tri', piano: 'pulse25', organ: 'pulse50', pluck: 'pulse12', kit16: 'kit',
+    brass: 'pulse25', horn: 'pulse50', flute: 'pulse12', clarinet: 'pulse50',
+    oboe: 'pulse12', choir: 'pulse50', harp: 'pulse12', guitar: 'pulse25',
+    epiano: 'pulse25', marimba: 'tri', vibes: 'tri', glock: 'pulse12',
+    timpani: 'bass', slap: 'bass',
   },
   '16bit': {
     pulse12: 'fm-lead', pulse25: 'fm-lead', pulse50: 'organ', lead: 'fm-lead',
     'lead-echo': 'fm-lead', tri: 'fm-bass', bass: 'fm-bass', arp: 'pluck', kit: 'kit16',
+    'noise-lead': 'glock', dpcm: 'epiano',
   },
 };
 

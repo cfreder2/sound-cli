@@ -28,6 +28,17 @@ function oscSample(kind, phase, dt, duty, noise, noiseIdx) {
 }
 
 /**
+ * Resample a noise bed so its rasp tracks pitch.
+ *
+ * The 2A03's noise channel in short mode repeats every 93 bits, which the ear
+ * hears as a tone whose pitch follows the channel's period -- so noise IS a
+ * melodic voice on that hardware. Generating a new shift-register buffer per
+ * note would be the faithful way and far too slow; reading the existing bed at
+ * a rate proportional to frequency gives the same effect for a multiply.
+ */
+const pitchedIndex = (i, f) => Math.floor(i * (f / 220));
+
+/**
  * Four-operator FM. `mod` says who modulates whom; `out` says who is heard.
  *
  * Written to allocate NOTHING per sample. The obvious version builds a
@@ -126,6 +137,10 @@ function renderNote(mix, opts) {
     // not use.
     const chain = [];
     if (inst.cut) chain.push(new Biquad('lowpass', inst.cut, 0.8));
+    // A fixed resonance. Wind instruments and voices are mostly defined by
+    // where their formants sit, and a peak is the cheapest way to put one
+    // there -- a clarinet and an oboe are the same reed at different peaks.
+    if (inst.eq) chain.push(new Biquad('peaking', inst.eq.f, inst.eq.q ?? 1.2, inst.eq.gain ?? 6));
     if (tone?.lp) chain.push(new Biquad('lowpass', tone.lp, 0.707));
     if (tone?.hp) chain.push(new Biquad('highpass', tone.hp, 0.707));
     if (tone?.tilt) chain.push(new Biquad('highshelf', 1500, 0.707, tone.tilt));
@@ -173,9 +188,16 @@ function renderNote(mix, opts) {
         const dt = f / RATE;
         phase += dt;
         if (phase >= 1) phase -= Math.floor(phase);
-        s = oscSample(layer.osc, phase, dt, duty, noise, i);
+        s = oscSample(layer.osc, phase, dt, duty, noise,
+          layer.pitched ? pitchedIndex(i, f) : i);
       }
       s *= e * lg;
+      // Quantise to `crush` bits. The DMC channel was seven bits and
+      // everything sampled went through it; the crunch is the character.
+      if (layer.crush) {
+        const q = (1 << layer.crush) - 1;
+        s = Math.round(clamp(s, -1, 1) * q) / q;
+      }
       for (let k = 0; k < chain.length; k++) s = chain[k].run(s);
 
       mix.L[j] += s * gl;

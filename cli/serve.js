@@ -9,11 +9,34 @@
 import { createServer } from 'node:http';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, extname, normalize } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 
+import { statSync } from 'node:fs';
 import { parseScore, expand } from '../core/score.js';
 import { parseFx, explainFx } from '../core/fx.js';
-import { INSTRUMENTS, listInstruments, SUBSTITUTE } from '../core/instruments.js';
+
+/**
+ * Re-import core/instruments.js when it changes on disk.
+ *
+ * Node caches ES modules for the life of the process, so a running `sound
+ * view` kept serving the instrument list it loaded at startup -- edit an
+ * instrument, reload the page, see the old one, and conclude the edit did not
+ * work. The scores and effects are read per request and never had this
+ * problem; this makes the instruments behave the same way. Keyed on mtime, so
+ * it re-imports once per edit rather than once per request.
+ */
+let instMod = null;
+let instStamp = 0;
+async function instruments(root) {
+  const path = join(root, 'core', 'instruments.js');
+  const stamp = statSync(path).mtimeMs;
+  if (!instMod || stamp !== instStamp) {
+    instStamp = stamp;
+    instMod = await import(`${pathToFileURL(path).href}?v=${stamp}`);
+  }
+  return instMod;
+}
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -30,7 +53,8 @@ const TYPES = {
  * and synthesising in the tab is two orders of magnitude smaller, and it is
  * also the only version where changing a note means changing a file.
  */
-export function buildManifest(root) {
+export async function buildManifest(root) {
+  const { INSTRUMENTS, listInstruments, SUBSTITUTE } = await instruments(root);
   const TRACKS = join(root, 'tracks');
   const FX = join(root, 'fx');
   return {
@@ -71,7 +95,10 @@ export function serve({ root, port = 7171, open = true }) {
     };
     try {
       if (url.pathname === '/data.json') {
-        return send(200, TYPES['.json'], JSON.stringify(buildManifest(root)));
+        buildManifest(root)
+          .then((m) => send(200, TYPES['.json'], JSON.stringify(m)))
+          .catch((e) => send(500, 'text/plain', e.message));
+        return undefined;
       }
       // Two roots: the page and its worker come from ui/, core/ is served as
       // itself so the worker's imports resolve the same way they will on a

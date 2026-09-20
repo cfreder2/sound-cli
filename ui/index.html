@@ -157,6 +157,10 @@
   .ms button:hover{color:var(--fg)}
   .ms button.m.on{background:var(--hot);color:#2a0a06;border-color:var(--hot)}
   .ms button.s.on{background:var(--good);color:#04180d;border-color:var(--good)}
+  td .hear{border:1px solid var(--line);background:#0a0d11;color:var(--dim);border-radius:4px;
+    font:10px/1 var(--mono);padding:5px 9px;cursor:pointer}
+  td .hear:hover{color:var(--fg);border-color:var(--b)}
+  td .hear.lit{background:var(--b);color:#001820;border-color:var(--b)}
   .panelhead{display:flex;gap:10px;align-items:center;margin-top:20px;
     border-top:1px solid var(--line);padding-top:14px}
   .panelhead h3{margin:0;font:600 11px/1 var(--mono);letter-spacing:.14em;
@@ -366,11 +370,11 @@ const toOpts = (kind, p) => (kind === 'fx'
   });
 
 const cache = new Map();
-async function buffers(kind, id, params = {}, onProgress = null) {
+async function buffers(kind, id, params = {}, onProgress = null, rawText = null) {
   const key = `${kind}:${id}:${JSON.stringify(params)}`;
   if (cache.has(key)) return cache.get(key);
 
-  const text = sourceOf(kind, id);
+  const text = rawText || sourceOf(kind, id);
   const base = toOpts(kind, params);
   const parts = ERAS.map(() => 0);
   const peaks = ERAS.map(() => null);
@@ -1039,7 +1043,31 @@ function render() {
           if (l.delay) bits.push(`+${l.delay}s`);
           return bits.join(' ');
         }).join('<br>') || (i.detail.drums ? 'kit' : '—');
-        t.append(el('tr', null, `<td>${esc(i.name)}</td><td class="n">${L}</td><td class="n">${esc(i.desc || '')}</td>`));
+        const tr = el('tr', null,
+          `<td></td><td>${esc(i.name)}</td><td class="n">${L}</td><td class="n">${esc(i.desc || '')}</td>`);
+        const b = el('button', 'hear', '\u25b6');
+        b.title = `Hear ${i.name}`;
+        b.onclick = async () => {
+          // A throwaway score, built here rather than kept as a file: the
+          // probe phrase is the same for every instrument, so a file per
+          // instrument would be 34 files that differ by one word.
+          const note = i.detail.drums ? 'k   .   h   .   s   .   h   .'
+            : i.name === 'arp' ? 'am  .   .   .   .   .   .   .'
+              : 'a3  c4  e4  a4  .   .   .   .';
+          const src = `@track probe\n  name PROBE\n  bpm 96\n  beats 8\n  era ${i.era}\n\n`
+            + `@voice v inst=${i.name} mix=0.22\n  ${note}\n`;
+          b.classList.add('lit');
+          try {
+            const bufs = await buffers('track', `probe-${i.name}`, {}, null, src);
+            const src2 = audio().createBufferSource();
+            src2.buffer = bufs[ERAS.indexOf(i.era)];
+            src2.connect(master);
+            src2.start();
+            src2.onended = () => b.classList.remove('lit');
+          } catch (e) { b.classList.remove('lit'); fail(`hearing ${i.name}`, e); }
+        };
+        tr.firstChild.append(b);
+        t.append(tr);
       }
       g.append(t);
     }

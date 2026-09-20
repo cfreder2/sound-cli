@@ -290,7 +290,7 @@ const VERBS = {
    * as text. Drop the folder on GitHub Pages and it works, because the tab
    * does the synthesis.
    */
-  build() {
+  async build() {
     const dir = resolve(positional[1] || flag('out', join(ROOT, 'site')));
     mkdirSync(join(dir, 'core'), { recursive: true });
     const files = ['index.html', 'render-worker.js'];
@@ -298,7 +298,7 @@ const VERBS = {
     for (const f of readdirSync(join(ROOT, 'core')).filter((x) => x.endsWith('.js'))) {
       writeFileSync(join(dir, 'core', f), readFileSync(join(ROOT, 'core', f)));
     }
-    const manifest = JSON.stringify(buildManifest(ROOT));
+    const manifest = JSON.stringify(await buildManifest(ROOT));
     writeFileSync(join(dir, 'data.json'), manifest);
     let bytes = 0;
     for (const f of [...files.map((x) => join(dir, x)), join(dir, 'data.json')]) {
