@@ -198,6 +198,27 @@
     box-shadow:0 8px 24px rgba(0,0,0,.6)}
   .pop b{color:var(--b);font-weight:400;display:block;margin-bottom:4px;letter-spacing:.08em}
   .kstat b{color:var(--good);font-weight:400}
+  /* editor */
+  .ed{display:grid;grid-template-columns:200px 1fr;gap:12px;align-items:start}
+  @media(max-width:760px){.ed{grid-template-columns:1fr}}
+  .trk{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel)}
+  .trk .row{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;
+    padding:8px 9px;border-bottom:1px solid var(--line);cursor:pointer}
+  .trk .row:last-child{border-bottom:0}
+  .trk .row.sel{background:var(--panel2);box-shadow:inset 3px 0 var(--a)}
+  .trk .row.armed{box-shadow:inset 3px 0 var(--hot)}
+  .trk .nm{font:11px/1.3 var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .trk .nm small{display:block;color:var(--dimmer);font-size:9px}
+  .trk .btns{display:flex;gap:3px}
+  .trk .btns button{width:22px;height:20px;border:1px solid var(--line);background:#0a0d11;
+    color:var(--dimmer);border-radius:3px;font:8px/1 var(--mono);cursor:pointer;padding:0}
+  .trk .btns .a.on{background:var(--hot);color:#2a0a06;border-color:var(--hot)}
+  .trk .btns .m.on{background:var(--hot);color:#2a0a06;border-color:var(--hot)}
+  .trk .btns .s.on{background:var(--good);color:#04180d;border-color:var(--good)}
+  .roll{border:1px solid var(--line);border-radius:8px;background:#0a0d11;overflow:auto}
+  .roll canvas{display:block;cursor:crosshair}
+  .edbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}
+  .edbar .sp{flex:1}
   #err{display:none;position:fixed;left:12px;right:12px;bottom:12px;z-index:200;max-height:38vh;overflow:auto;
     border:1px solid var(--hot);border-radius:8px;background:#1b0f0d;color:#ffd9d3;
     font:11.5px/1.5 var(--mono);padding:11px 13px;white-space:pre-wrap}
@@ -232,6 +253,7 @@
     <button data-tab="fx">Effects</button>
       <button data-tab="instruments">Instruments</button>
     <button data-tab="keys">Keyboard</button>
+    <button data-tab="editor">Editor</button>
     <span class="sp"></span>
     <span id="qn"></span>
     <input id="q" type="search" placeholder="search" autocomplete="off" spellcheck="false">
@@ -243,6 +265,8 @@
 <script type="module">
 import { probeScore } from './core/probe.js';
 import { quantise, toScore } from './core/record.js';
+import * as ED from './core/edit.js';
+import { loadScore } from './core/score.js';
 
 // Both eras of the same thing are decoded and started together, sample
 // aligned, and the A/B switch only moves gain between them. That is what makes
@@ -1593,6 +1617,368 @@ function attachMidi(id) {
 let kbPlay = null, kbStop = null;
 const kbDown = new Set();
 
+// ----------------------------------------------------------------- editor --
+//
+// Named the way editing software is named, because those words are what
+// anybody arriving here already knows:
+//
+//   track      one instrument's part. A `@voice` in the file.
+//   arm        which track a recording goes into.
+//   overdub    record a new track while the others play.
+//   playhead   where you are.
+//   selection  a span of bars, which is what insert and delete act on.
+//
+// A piano roll rather than a step grid: the score IS a step grid, and drawing
+// it as one makes pitch invisible. Canvas rather than elements because
+// SCRAMBLE is 1875 notes and 1875 divs is a slideshow.
+
+let edSong = null;      // the model being edited
+let edTrack = null;     // selected track id
+let edArmed = null;     // track that recording goes into
+let edSel = null;       // { from, to } in bars
+let edDirty = false;
+const edMute = new Set();
+const edSolo = new Set();
+let edPlay = null;      // { src, startedAt }
+
+const ROW_H = 9;
+const STEP_W = 13;
+
+function edPitchRange(m) {
+  const all = m.voices.flatMap((v) => v.notes.map((n) => n.midi)).filter((x) => x != null);
+  if (!all.length) return [48, 84];
+  return [Math.min(...all) - 2, Math.max(...all) + 3];
+}
+
+function drawRoll(cv, m) {
+  const [lo, hi] = edPitchRange(m);
+  const rows = hi - lo + 1;
+  const steps = m.bars * m.beats;
+  const w = steps * STEP_W;
+  const h = rows * ROW_H;
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  cv.width = w * dpr; cv.height = h * dpr;
+  cv.style.width = `${w}px`; cv.style.height = `${h}px`;
+  const g = cv.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+
+  // black-key rows, so pitch is readable without a keyboard down the side
+  for (let r = 0; r < rows; r++) {
+    const pc = (hi - r) % 12;
+    if ([1, 3, 6, 8, 10].includes(((pc % 12) + 12) % 12)) {
+      g.fillStyle = '#0e1318'; g.fillRect(0, r * ROW_H, w, ROW_H);
+    }
+  }
+  // selection behind everything
+  if (edSel) {
+    g.fillStyle = 'rgba(111,230,255,.12)';
+    g.fillRect(edSel.from * m.beats * STEP_W, 0, (edSel.to - edSel.from) * m.beats * STEP_W, h);
+  }
+  // beat and bar lines
+  for (let st = 0; st <= steps; st++) {
+    const x = st * STEP_W;
+    const bar = st % m.beats === 0;
+    g.strokeStyle = bar ? '#2b3640' : '#151b21';
+    g.lineWidth = 1;
+    g.beginPath(); g.moveTo(x + 0.5, 0); g.lineTo(x + 0.5, h); g.stroke();
+  }
+  for (let r = 0; r <= rows; r++) {
+    g.strokeStyle = '#121820';
+    g.beginPath(); g.moveTo(0, r * ROW_H + 0.5); g.lineTo(w, r * ROW_H + 0.5); g.stroke();
+  }
+
+  // other tracks as ghosts, so you can see what you are playing against
+  for (const v of m.voices) {
+    if (v.id === edTrack || v.kind === 'drum' || v.kind === 'chord') continue;
+    g.fillStyle = 'rgba(139,154,167,.20)';
+    for (const n of v.notes) {
+      if (n.midi == null) continue;
+      g.fillRect(n.step * STEP_W + 1, (hi - n.midi) * ROW_H + 1, n.len * STEP_W - 2, ROW_H - 2);
+    }
+  }
+  // the selected track
+  const v = m.voices.find((x) => x.id === edTrack);
+  if (v) {
+    for (const n of v.notes) {
+      const y = n.midi != null ? (hi - n.midi) * ROW_H : h - ROW_H;
+      g.fillStyle = era === '8bit' ? '#ffb74d' : '#6fe6ff';
+      g.fillRect(n.step * STEP_W + 1, y + 1, n.len * STEP_W - 2, ROW_H - 2);
+      g.fillStyle = 'rgba(0,0,0,.45)';
+      g.fillRect((n.step + n.len) * STEP_W - 3, y + 1, 2, ROW_H - 2);
+    }
+  }
+  // playhead
+  if (edPlay) {
+    const t = (ctx.currentTime - edPlay.startedAt);
+    const st = t / (60 / m.bpm / 4);
+    if (st >= 0 && st <= steps) {
+      g.fillStyle = '#fff';
+      g.fillRect(st * STEP_W, 0, 1.5, h);
+    }
+  }
+}
+
+function edStopPlay() {
+  if (edPlay) { try { edPlay.src.stop(); } catch {} edPlay = null; }
+}
+
+async function edRender(m) {
+  const text = ED.toText(m);
+  const bufs = await buffers('track', `ed-${m.id}-${edDirty}-${Date.now()}`, {}, null, text);
+  return bufs[ERAS.indexOf(m.era)];
+}
+
+
+function editorView() {
+  const c = el('div', 'card');
+  c.append(el('h2', null, 'Editor'));
+
+  // --- which song ----------------------------------------------------------
+  const top = el('div', 'edbar');
+  const songSel = el('select');
+  for (const t of manifest.tracks) {
+    const o = el('option', null, `${t.name}${t.shipped ? '' : '  (yours)'}`);
+    o.value = t.id;
+    if (edSong && t.id === edSong.id) o.selected = true;
+    songSel.append(o);
+  }
+  const openSong = (id) => {
+    const t = manifest.tracks.find((x) => x.id === id);
+    if (!t) return;
+    edStopPlay();
+    edSong = ED.toModel(loadScore(t.source, `${id}.snd`));
+    edTrack = edSong.voices[0]?.id ?? null;
+    edArmed = null; edSel = null; edDirty = false;
+    edMute.clear(); edSolo.clear();
+    era = edSong.era;
+    render();
+  };
+  songSel.onchange = () => openSong(songSel.value);
+  const saveBtn = el('button', 'btn tiny', 'SAVE');
+  const saveMsg = el('span', 'meta', '');
+  top.append(el('span', 'meta', 'SONG'), songSel, saveBtn, saveMsg, el('span', 'sp'));
+  c.append(top);
+
+  if (!edSong) {
+    openSong(manifest.tracks[0]?.id);
+    c.append(el('div', 'meta', 'Loading…'));
+    return c;
+  }
+  const m = edSong;
+  top.append(el('span', 'meta',
+    `${m.bars} bars · ${m.beats}/bar · ${m.bpm} BPM · ${m.era}${edDirty ? ' · unsaved' : ''}`));
+  if (m.wasSectioned) {
+    c.append(el('div', 'note',
+      'This song was written with sections and an order. The editor has flattened it into one '
+      + 'timeline, so saving will replace the arrangement with its played-out form.'));
+  }
+
+  saveBtn.onclick = async () => {
+    const id = m.id;
+    saveMsg.textContent = 'saving…';
+    try {
+      const r = await fetch('/api/save', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id, text: ED.toText(m), overwrite: true }),
+      });
+      if (!r.ok) { saveMsg.textContent = await r.text(); return; }
+      edDirty = false;
+      saveMsg.innerHTML = `saved to <b>tracks/${esc(id)}.snd</b>`;
+      manifest = await (await fetch(`data.json?t=${Date.now()}`)).json();
+      manifest.substitute = manifest.substituteTable;
+    } catch { saveMsg.textContent = 'No local server — editing works, saving needs one.'; }
+  };
+
+  // --- tracks --------------------------------------------------------------
+  const grid = el('div', 'ed');
+  const trk = el('div', 'trk');
+  for (const v of m.voices) {
+    const row = el('div', `row${v.id === edTrack ? ' sel' : ''}${v.id === edArmed ? ' armed' : ''}`);
+    row.append(el('div', 'nm', `${esc(v.id)}<small>${esc(v.inst)} · mix ${v.mix}</small>`));
+    const btns = el('div', 'btns');
+    const arm = el('button', `a${v.id === edArmed ? ' on' : ''}`, '●');
+    arm.title = 'Arm: recording goes into this track';
+    const mu = el('button', `m${edMute.has(v.id) ? ' on' : ''}`, 'M');
+    const so = el('button', `s${edSolo.has(v.id) ? ' on' : ''}`, 'S');
+    arm.onclick = (e) => { e.stopPropagation(); edArmed = edArmed === v.id ? null : v.id; render(); };
+    mu.onclick = (e) => { e.stopPropagation(); edMute.has(v.id) ? edMute.delete(v.id) : edMute.add(v.id); render(); };
+    so.onclick = (e) => { e.stopPropagation(); edSolo.has(v.id) ? edSolo.delete(v.id) : edSolo.add(v.id); render(); };
+    btns.append(arm, mu, so);
+    row.append(btns);
+    row.onclick = () => { edTrack = v.id; render(); };
+    trk.append(row);
+  }
+  const addRow = el('div', 'row');
+  addRow.append(el('div', 'nm', '+ new track'));
+  addRow.onclick = () => {
+    ED.addVoice(m, { id: 'part', inst: kbInst, mix: 0.2 });
+    edTrack = m.voices[m.voices.length - 1].id;
+    edArmed = edTrack;
+    edDirty = true;
+    render();
+  };
+  trk.append(addRow);
+  grid.append(trk);
+
+  // --- the roll ------------------------------------------------------------
+  const rollBox = el('div', 'roll');
+  const cv = el('canvas');
+  rollBox.append(cv);
+  grid.append(rollBox);
+  c.append(grid);
+
+  const [lo, hi] = edPitchRange(m);
+  const at = (ev) => {
+    const r = cv.getBoundingClientRect();
+    return {
+      step: Math.max(0, Math.floor((ev.clientX - r.left) / STEP_W)),
+      midi: hi - Math.floor((ev.clientY - r.top) / ROW_H),
+    };
+  };
+  let drag = null;
+  cv.addEventListener('pointerdown', (ev) => {
+    const v = m.voices.find((x) => x.id === edTrack);
+    if (!v) return;
+    const { step, midi } = at(ev);
+    const hitNote = v.notes.find((n) => n.step <= step && step < n.step + n.len
+      && (n.midi == null || n.midi === midi));
+    if (ev.altKey || ev.button === 2) { ED.delNote(m, edTrack, step); edDirty = true; drawRoll(cv, m); return; }
+    if (hitNote) {
+      // grabbing the last step of a note resizes it; anywhere else moves it
+      const onEnd = step === hitNote.step + hitNote.len - 1 && hitNote.len > 0;
+      drag = { note: hitNote, mode: onEnd ? 'len' : 'move', step0: step, origin: { ...hitNote } };
+    } else if (v.kind === 'note') {
+      ED.setNote(m, edTrack, step, midi, 1);
+      edDirty = true;
+      drag = { note: v.notes.find((n) => n.step === step), mode: 'len', step0: step, origin: { step, len: 1 } };
+    }
+    // Capture so a drag that leaves the canvas still tracks. Guarded because a
+    // synthetic event has no real pointer behind it to capture.
+    try { cv.setPointerCapture(ev.pointerId); } catch { /* no live pointer */ }
+    drawRoll(cv, m);
+  });
+  cv.addEventListener('pointermove', (ev) => {
+    if (!drag) return;
+    const { step, midi } = at(ev);
+    if (drag.mode === 'len') {
+      ED.setLen(m, edTrack, drag.note.step, Math.max(1, step - drag.note.step + 1));
+    } else {
+      const d = step - drag.step0;
+      const ns = Math.max(0, drag.origin.step + d);
+      ED.delNote(m, edTrack, drag.note.step);
+      ED.setNote(m, edTrack, ns, drag.note.midi != null ? midi : drag.note.hit, drag.origin.len);
+      drag.note = m.voices.find((x) => x.id === edTrack).notes.find((n) => n.step === ns);
+      drag.step0 = step; drag.origin = { ...drag.note };
+    }
+    edDirty = true;
+    drawRoll(cv, m);
+  });
+  const endDrag = () => { drag = null; };
+  cv.addEventListener('pointerup', endDrag);
+  cv.addEventListener('pointercancel', endDrag);
+  cv.addEventListener('contextmenu', (ev) => ev.preventDefault());
+
+  // --- transport and bar operations ---------------------------------------
+  const bar = el('div', 'edbar');
+  const playBtn = el('button', 'btn', '▶ PLAY');
+  const stopBtn = el('button', 'btn tiny', '■');
+  const recBtn = el('button', 'recbtn', '● OVERDUB');
+  const selLabel = el('span', 'meta', '');
+  const insBtn = el('button', 'btn tiny', 'INSERT BAR');
+  const delBtn = el('button', 'btn tiny', 'DELETE BARS');
+  const clrBtn = el('button', 'btn tiny', 'CLEAR');
+  const selFrom = el('input'); selFrom.type = 'number'; selFrom.min = '1'; selFrom.style.width = '58px';
+  const selTo = el('input'); selTo.type = 'number'; selTo.min = '1'; selTo.style.width = '58px';
+  selFrom.value = String((edSel?.from ?? 0) + 1);
+  selTo.value = String(edSel?.to ?? m.bars);
+  const readSel = () => {
+    const f = Math.max(0, (+selFrom.value || 1) - 1);
+    const t = Math.min(m.bars, Math.max(f + 1, +selTo.value || m.bars));
+    edSel = { from: f, to: t };
+    selLabel.textContent = `bars ${f + 1}–${t}`;
+    drawRoll(cv, m);
+  };
+  selFrom.oninput = readSel; selTo.oninput = readSel;
+  readSel();
+
+  insBtn.onclick = () => { ED.insertBars(m, edSel.from, 1); edDirty = true; render(); };
+  delBtn.onclick = () => { ED.deleteBars(m, edSel.from, edSel.to - edSel.from); edDirty = true; edSel = null; render(); };
+  clrBtn.onclick = () => {
+    ED.clearRange(m, edTrack, edSel.from * m.beats, edSel.to * m.beats);
+    edDirty = true; drawRoll(cv, m);
+  };
+
+  let raf2 = 0;
+  const follow = () => { if (!edPlay) { raf2 = 0; return; } drawRoll(cv, m); raf2 = requestAnimationFrame(follow); };
+  const startPlay = async (recordInto) => {
+    edStopPlay();
+    const keep = { ...m, voices: m.voices.filter((v) => (edSolo.size ? edSolo.has(v.id) : !edMute.has(v.id))
+      && v.id !== recordInto) };
+    const buf = await edRender(keep);
+    const c2 = audio();
+    const src = c2.createBufferSource();
+    src.buffer = buf; src.connect(master);
+    const startAt = c2.currentTime + 0.15;
+    src.start(startAt);
+    edPlay = { src, startedAt: startAt };
+    src.onended = () => { if (edPlay?.src === src) { edPlay = null; drawRoll(cv, m); } };
+    if (!raf2) follow();
+    return startAt;
+  };
+  playBtn.onclick = () => startPlay(null);
+  stopBtn.onclick = () => { edStopPlay(); rec.running = false; recBtn.classList.remove('on'); recBtn.textContent = '● OVERDUB'; drawRoll(cv, m); };
+  recBtn.onclick = async () => {
+    if (rec.running) {
+      rec.stop();
+      edStopPlay();
+      recBtn.classList.remove('on'); recBtn.textContent = '● OVERDUB';
+      const q = quantise(rec.events, { bpm: m.bpm, beats: m.beats, grid: 1 });
+      const target = edArmed || edTrack;
+      const v = m.voices.find((x) => x.id === target);
+      if (v) {
+        q.voices.forEach((cells, i) => {
+          const into = i === 0 ? v : (m.voices.find((x) => x.id === `${target}-${i}`)
+            || (ED.addVoice(m, { id: `${target}-${i}`, inst: v.inst, mix: v.mix }), m.voices[m.voices.length - 1]));
+          cells.forEach((cell, step) => {
+            if (cell === '-' || cell === '.') return;
+            let len = 1;
+            while (cells[step + len] === '.') len += 1;
+            const midiN = ED.toModel(loadScore(
+              `@track t\n bpm 120\n beats 4\n era 8bit\n@voice a inst=lead mix=0.2\n  ${cell}  -   -   - \n`, 't',
+            )).voices[0].notes[0]?.midi;
+            if (midiN != null) ED.setNote(m, into.id, step, midiN, len);
+          });
+        });
+        edDirty = true;
+      }
+      render();
+      return;
+    }
+    if (!edArmed && !edTrack) return;
+    await ensureLive();
+    const startAt = await startPlay(edArmed || edTrack);
+    rec.start(startAt);
+    recBtn.classList.add('on'); recBtn.textContent = '■ STOP';
+  };
+
+  bar.append(playBtn, stopBtn, recBtn, info('OVERDUB',
+    'Plays the other tracks and records what you play into the armed one. Arm a track with the '
+    + 'round button beside its name, or make a new one.'),
+    el('span', 'sp'),
+    el('span', 'meta', 'BARS'), selFrom, el('span', 'meta', '–'), selTo,
+    insBtn, delBtn, clrBtn);
+  c.append(bar);
+  c.append(el('div', 'hint',
+    'Click to add a note, drag it to move, drag its right edge to lengthen, alt-click or '
+    + 'right-click to delete. INSERT and DELETE act on the bar range; CLEAR empties it on the '
+    + 'selected track only.'));
+
+  requestAnimationFrame(() => drawRoll(cv, m));
+  return c;
+}
+
 // -------------------------------------------------------------------- views --
 
 let tab = 'tracks';
@@ -1649,6 +2035,11 @@ function render() {
   }
 
   nativeEra = null; markNative();
+  if (tab === 'editor') {
+    setCount(0, 0);
+    main.append(editorView());
+    return;
+  }
   if (tab === 'keys') {
     setCount(0, 0);
     main.append(keysView());

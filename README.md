@@ -92,6 +92,35 @@ notice:
   stays in one lane instead of moving every time a chord changes shape. Past
   four at once, notes are reported as dropped rather than silently overwritten.
 
+## The editor
+
+The **Editor** tab opens a song as a set of tracks on a timeline, in the words
+editing software uses:
+
+| | |
+| --- | --- |
+| **track** | one instrument's part — a `@voice` in the file |
+| **arm** | which track a recording goes into |
+| **overdub** | record a new track while the others play |
+| **playhead** | where you are |
+| **selection** | a span of bars, which INSERT and DELETE act on |
+
+Click to add a note, drag to move it, drag its right edge to lengthen, alt-click
+or right-click to delete. INSERT BAR and DELETE BARS act on the bar range, so
+you can open space in the middle or cut the end. CLEAR empties the range on the
+selected track only. Other tracks show as grey ghosts behind the one you are
+editing.
+
+Overdub is the point of it: arm a track (or make a new one), press OVERDUB, and
+everything else plays while what you play is recorded into the armed track,
+quantised against the song's own tempo. That is how a song gets built — one
+part at a time against the parts already there.
+
+It edits flat tracks. A song written with `@section` and `@order` plays twenty
+written bars over a seventy-bar arrangement; opening one flattens it into a
+single timeline and says so, because editing bar 40 of an order that visits
+section A four times would mean editing A and changing all four.
+
 ## How the pieces fit
 
 Four words, used precisely, because three of them sound like each other:
