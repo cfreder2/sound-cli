@@ -168,6 +168,26 @@
 
     color:var(--a);margin:26px 0 8px}
   .note{border-left:2px solid var(--a);padding-left:13px;color:var(--dim);font-size:12px;margin:14px 0}
+  /* keyboard */
+  .kb{position:relative;height:150px;margin:16px 0 8px;user-select:none;touch-action:none}
+  .kb .w{position:absolute;top:0;bottom:0;border:1px solid #2a343d;border-radius:0 0 5px 5px;
+    background:linear-gradient(#f2f5f7,#cfd8de);box-shadow:inset 0 -6px 10px rgba(0,0,0,.12)}
+  .kb .b{position:absolute;top:0;height:62%;border-radius:0 0 4px 4px;z-index:2;
+    background:linear-gradient(#333c45,#11171c);box-shadow:inset 0 -4px 6px rgba(0,0,0,.5)}
+  .kb .w.on{background:linear-gradient(var(--a),#d79733)}
+  .kb .b.on{background:linear-gradient(var(--a),#a86f16)}
+  .kb .lbl{position:absolute;bottom:5px;width:100%;text-align:center;
+    font:9px var(--mono);color:#6c7a85;pointer-events:none}
+  .kb .b .lbl{bottom:4px;color:#7d8b96}
+  .rec{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin:12px 0}
+  .rec select,.rec input[type=number]{background:var(--panel);border:1px solid var(--line);
+    color:var(--fg);border-radius:6px;font:12px var(--mono);padding:7px 9px}
+  .rec input[type=number]{width:66px}
+  .recbtn{border:1px solid var(--hot);background:var(--panel);color:var(--hot);border-radius:7px;
+    font:600 12px/1 var(--mono);letter-spacing:.1em;padding:9px 15px;cursor:pointer}
+  .recbtn.on{background:var(--hot);color:#2a0a06}
+  .kstat{font:11px/1.5 var(--mono);color:var(--dim);min-height:1.5em}
+  .kstat b{color:var(--good);font-weight:400}
   #err{display:none;position:fixed;left:12px;right:12px;bottom:12px;z-index:200;max-height:38vh;overflow:auto;
     border:1px solid var(--hot);border-radius:8px;background:#1b0f0d;color:#ffd9d3;
     font:11.5px/1.5 var(--mono);padding:11px 13px;white-space:pre-wrap}
@@ -201,6 +221,7 @@
     <button data-tab="tracks" class="on">Tracks</button>
     <button data-tab="fx">Effects</button>
       <button data-tab="instruments">Instruments</button>
+    <button data-tab="keys">Keyboard</button>
     <span class="sp"></span>
     <span id="qn"></span>
     <input id="q" type="search" placeholder="search" autocomplete="off" spellcheck="false">
@@ -211,6 +232,7 @@
 
 <script type="module">
 import { probeScore } from './core/probe.js';
+import { quantise, toScore } from './core/record.js';
 
 // Both eras of the same thing are decoded and started together, sample
 // aligned, and the A/B switch only moves gain between them. That is what makes
@@ -261,7 +283,12 @@ const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart
 let bassEq = null, trebEq = null;
 function audio() {
   if (!ctx) {
-    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // 44100 explicitly: core/dsp.js fixes the sample rate there, and a
+    // context running at 48 kHz would make the worklet's idea of a second
+    // disagree with the device's -- which detunes live playing by a tone.
+    const AC = window.AudioContext || window.webkitAudioContext;
+    try { ctx = new AC({ sampleRate: 44100, latencyHint: 'interactive' }); }
+    catch { ctx = new AC(); }
     master = ctx.createGain();
     master.gain.value = +$('#vol').value;
     // A listening EQ, not a render setting. It sits after everything and
@@ -335,6 +362,92 @@ const runRender = (kind, text, id, opts, onProgress) => new Promise((resolve, re
   queue.push({ job: ++jobSeq, kind, text, id, opts, onProgress, resolve, reject });
   pump();
 });
+
+// --- live playing ------------------------------------------------------------
+//
+// An AudioWorklet running the same core/voice.js the renderer uses, so a note
+// played here and the same note written into a score are the same samples.
+// 128-sample blocks at 44.1 kHz put the floor on latency at 2.9 ms.
+
+let live = null;          // the AudioWorkletNode
+let liveReady = null;     // a promise, so several callers share one setup
+let nextVoiceId = 1;
+
+async function ensureLive() {
+  if (live) return live;
+  if (!liveReady) {
+    liveReady = (async () => {
+      const c = audio();
+      await c.audioWorklet.addModule('live-worklet.js');
+      const node = new AudioWorkletNode(c, 'live', { outputChannelCount: [2] });
+      node.connect(master);
+      live = node;
+      return node;
+    })().catch((e) => { liveReady = null; fail('starting the live engine', e); throw e; });
+  }
+  return liveReady;
+}
+
+const held = new Map();   // midi note -> voice id
+
+async function noteOn(midi, inst, era, gain = 0.25) {
+  const node = await ensureLive();
+  if (held.has(midi)) noteOff(midi);
+  const id = nextVoiceId += 1;
+  held.set(midi, id);
+  node.port.postMessage({ type: 'on', id, note: midi, inst, era, gain });
+  rec.onNote(midi, true);
+  return id;
+}
+
+function noteOff(midi) {
+  const id = held.get(midi);
+  if (id === undefined) return;
+  held.delete(midi);
+  live?.port.postMessage({ type: 'off', id });
+  rec.onNote(midi, false);
+}
+
+function panic() {
+  held.clear();
+  live?.port.postMessage({ type: 'panic' });
+}
+
+// --- the recorder ------------------------------------------------------------
+
+const rec = {
+  armed: false, running: false, t0: 0, open: new Map(), events: [], onChange: null,
+  start(when) { this.running = true; this.t0 = when; this.events = []; this.open.clear(); },
+  stop() { 
+    this.running = false;
+    // Anything still held ends now rather than being discarded.
+    for (const [note, start] of this.open) this.events.push({ note, start, end: ctx.currentTime - this.t0 });
+    this.open.clear();
+    this.onChange?.();
+  },
+  onNote(midi, down) {
+    if (!this.running) return;
+    const t = ctx.currentTime - this.t0;
+    if (down) this.open.set(midi, Math.max(0, t));
+    else if (this.open.has(midi)) {
+      this.events.push({ note: midi, start: this.open.get(midi), end: t });
+      this.open.delete(midi);
+      this.onChange?.();
+    }
+  },
+};
+
+/** The metronome. Not an instrument -- a scheduled click, on the main thread. */
+function click(at, accent) {
+  const c = audio();
+  const o = c.createOscillator();
+  const g = c.createGain();
+  o.frequency.value = accent ? 1600 : 1000;
+  g.gain.setValueAtTime(accent ? 0.18 : 0.10, at);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + 0.045);
+  o.connect(g); g.connect(master);
+  o.start(at); o.stop(at + 0.06);
+}
 
 // --- the bar ----------------------------------------------------------------
 //
@@ -971,6 +1084,245 @@ function fxCard(f) {
   return c;
 }
 
+
+// ------------------------------------------------------------------- keys --
+
+// Tracker layout: two rows of the computer keyboard are two octaves, which is
+// what every chip tracker has used since Protracker and what anybody who has
+// used one already has in their fingers.
+const KEYMAP = {
+  z: 0, s: 1, x: 2, d: 3, c: 4, v: 5, g: 6, b: 7, h: 8, n: 9, j: 10, m: 11,
+  q: 12, 2: 13, w: 14, 3: 15, e: 16, r: 17, 5: 18, t: 19, 6: 20, y: 21, 7: 22, u: 23,
+};
+const KEYLABEL = Object.fromEntries(Object.entries(KEYMAP).map(([k, v]) => [v, k]));
+const WHITE_PC = [0, 2, 4, 5, 7, 9, 11];
+const BLACK_OFF = { 1: 0.68, 3: 1.68, 6: 3.68, 8: 4.68, 10: 5.68 };
+
+let kbOctave = 4;
+let kbInst = 'lead';
+let midiAccess = null;
+let midiInput = null;
+const kbEls = new Map();
+
+function litKey(semi, on) {
+  kbEls.get(semi)?.classList.toggle('on', on);
+}
+
+function keysView() {
+  const c = el('div', 'card');
+  c.append(el('h2', null, 'Keyboard'));
+  c.append(el('div', 'meta',
+    'Play with the computer keys, the mouse, or a MIDI device. Record a take and it '
+    + 'comes back as a score you can save into tracks/.'));
+
+  // --- controls ------------------------------------------------------------
+  const row1 = el('div', 'rec');
+  const instSel = el('select');
+  for (const i of manifest.instruments) {
+    const o = el('option', null, `${i.name}  (${i.era})`);
+    o.value = i.name;
+    if (i.name === kbInst) o.selected = true;
+    instSel.append(o);
+  }
+  instSel.onchange = () => { kbInst = instSel.value; panic(); };
+  const octDown = el('button', 'btn tiny', '− OCT');
+  const octLabel = el('span', 'meta', `C${kbOctave}`);
+  const octUp = el('button', 'btn tiny', 'OCT +');
+  octDown.onclick = () => { kbOctave = Math.max(0, kbOctave - 1); octLabel.textContent = `C${kbOctave}`; panic(); };
+  octUp.onclick = () => { kbOctave = Math.min(7, kbOctave + 1); octLabel.textContent = `C${kbOctave}`; panic(); };
+
+  const midiSel = el('select');
+  midiSel.append(Object.assign(el('option', null, 'MIDI: none'), { value: '' }));
+  midiSel.onchange = () => attachMidi(midiSel.value);
+  row1.append(el('span', 'meta', 'SOUND'), instSel, octDown, octLabel, octUp,
+    el('span', 'meta', '·'), midiSel);
+  c.append(row1);
+
+  // --- record --------------------------------------------------------------
+  const row2 = el('div', 'rec');
+  const recBtn = el('button', 'recbtn', '● REC');
+  const bpm = el('input'); bpm.type = 'number'; bpm.value = '104'; bpm.min = '40'; bpm.max = '220';
+  const grid = el('select');
+  for (const [v, t] of [[1, '1/16'], [2, '1/8'], [4, '1/4']]) {
+    const o = el('option', null, t); o.value = String(v); grid.append(o);
+  }
+  const countIn = el('select');
+  for (const [v, t] of [[0, 'no count-in'], [1, '1 bar in'], [2, '2 bars in']]) {
+    const o = el('option', null, t); o.value = String(v);
+    if (v === 1) o.selected = true;
+    countIn.append(o);
+  }
+  const metro = el('button', 'btn tiny on', 'CLICK');
+  let metroOn = true;
+  metro.onclick = () => { metroOn = !metroOn; metro.classList.toggle('on', metroOn); };
+  row2.append(recBtn, el('span', 'meta', 'BPM'), bpm, el('span', 'meta', 'SNAP'), grid, countIn, metro);
+  c.append(row2);
+
+  const stat = el('div', 'kstat', 'Ready. Press a key.');
+  c.append(stat);
+
+  // --- the keys ------------------------------------------------------------
+  const kb = el('div', 'kb');
+  kbEls.clear();
+  const whites = 14;
+  for (let semi = 0; semi < 24; semi++) {
+    const pc = semi % 12, oct = Math.floor(semi / 12);
+    const black = !WHITE_PC.includes(pc);
+    const k = el('div', black ? 'b' : 'w');
+    if (black) {
+      k.style.left = `${((oct * 7 + BLACK_OFF[pc]) / whites) * 100}%`;
+      k.style.width = `${(0.64 / whites) * 100}%`;
+    } else {
+      k.style.left = `${((oct * 7 + WHITE_PC.indexOf(pc)) / whites) * 100}%`;
+      k.style.width = `${(1 / whites) * 100}%`;
+    }
+    k.append(el('div', 'lbl', KEYLABEL[semi] ? KEYLABEL[semi].toUpperCase() : ''));
+    const press = (ev) => { ev.preventDefault(); play(semi); };
+    const lift = () => stopNote(semi);
+    k.addEventListener('pointerdown', press);
+    k.addEventListener('pointerup', lift);
+    k.addEventListener('pointerleave', lift);
+    k.addEventListener('pointercancel', lift);
+    kbEls.set(semi, k);
+    kb.append(k);
+  }
+  c.append(kb);
+  c.append(el('div', 'hint',
+    'Z S X D C V G B H N J M is the lower octave, Q 2 W 3 E R 5 T 6 Y 7 U the upper. '
+    + 'Hold shift-escape to cut all notes.'));
+
+  // --- result --------------------------------------------------------------
+  const outBox = el('div');
+  c.append(outBox);
+
+  const era = () => (manifest.instruments.find((i) => i.name === kbInst)?.era || '8bit');
+  const play = (semi) => noteOn(kbOctave * 12 + 12 + semi, kbInst, era()).then(() => litKey(semi, true));
+  const stopNote = (semi) => { noteOff(kbOctave * 12 + 12 + semi); litKey(semi, false); };
+  kbPlay = play; kbStop = stopNote;
+
+  const showTake = () => {
+    outBox.innerHTML = '';
+    const q = quantise(rec.events, {
+      bpm: +bpm.value, beats: 16, grid: +grid.value,
+    });
+    if (!q.voices.length) { stat.textContent = 'Nothing recorded.'; return; }
+    const text = toScore(q, {
+      id: 'take', era: era(), inst: kbInst, mix: 0.2,
+      note: `Recorded ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
+    });
+    stat.innerHTML = `<b>${rec.events.length} notes</b> · ${q.bars} bars · `
+      + `${q.voices.length} voice${q.voices.length > 1 ? 's' : ''}`
+      + (q.dropped ? ` · ${q.dropped} dropped (more than 4 at once)` : '');
+    const bar = el('div', 'rec');
+    const copy = el('button', 'btn tiny', 'COPY');
+    copy.onclick = () => { navigator.clipboard?.writeText(text); copy.textContent = 'COPIED'; setTimeout(() => { copy.textContent = 'COPY'; }, 1200); };
+    const dl = el('button', 'btn tiny', 'DOWNLOAD .snd');
+    dl.onclick = () => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+      a.download = 'take.snd';
+      a.click();
+    };
+    const hear = el('button', 'btn tiny', '▶ HEAR IT');
+    hear.onclick = async () => {
+      try {
+        const bufs = await buffers('track', `take-${Date.now()}`, {}, null, text);
+        const n = audio().createBufferSource();
+        n.buffer = bufs[ERAS.indexOf(era())];
+        n.connect(master); n.start();
+      } catch (e) { fail('playing the take', e); }
+    };
+    bar.append(hear, copy, dl);
+    outBox.append(bar);
+    const pre = el('pre', null, esc(text));
+    outBox.append(pre);
+  };
+  rec.onChange = () => { if (!rec.running) showTake(); };
+
+  recBtn.onclick = async () => {
+    if (rec.running) {
+      rec.stop();
+      recBtn.classList.remove('on');
+      recBtn.textContent = '● REC';
+      showTake();
+      return;
+    }
+    await ensureLive();
+    const c2 = audio();
+    const beat = 60 / +bpm.value;
+    const bars = +countIn.value;
+    const at = c2.currentTime + 0.12;
+    if (metroOn || bars) {
+      for (let i = 0; i < (bars || 0) * 4; i++) click(at + i * beat, i % 4 === 0);
+    }
+    const startAt = at + bars * 4 * beat;
+    if (metroOn) for (let i = 0; i < 64; i++) click(startAt + i * beat, i % 4 === 0);
+    recBtn.classList.add('on');
+    recBtn.textContent = '■ STOP';
+    stat.textContent = bars ? `Count-in… ${bars} bar${bars > 1 ? 's' : ''}` : 'Recording.';
+    setTimeout(() => {
+      rec.start(startAt);
+      stat.textContent = 'Recording. Play something, then press STOP.';
+    }, Math.max(0, (startAt - c2.currentTime) * 1000));
+  };
+
+  // --- MIDI ----------------------------------------------------------------
+  if (navigator.requestMIDIAccess) {
+    navigator.requestMIDIAccess().then((acc) => {
+      midiAccess = acc;
+      const fill = () => {
+        const cur = midiSel.value;
+        midiSel.innerHTML = '';
+        midiSel.append(Object.assign(el('option', null, 'MIDI: none'), { value: '' }));
+        for (const inp of acc.inputs.values()) {
+          const o = el('option', null, `MIDI: ${inp.name}`);
+          o.value = inp.id;
+          if (inp.id === cur) o.selected = true;
+          midiSel.append(o);
+        }
+        if (acc.inputs.size === 0) midiSel.firstChild.textContent = 'MIDI: no devices';
+      };
+      fill();
+      acc.onstatechange = fill;
+    }).catch(() => { midiSel.firstChild.textContent = 'MIDI: blocked'; });
+  } else {
+    midiSel.firstChild.textContent = 'MIDI: unsupported';
+    midiSel.disabled = true;
+  }
+
+  return c;
+}
+
+/** Route a MIDI device's notes into the same path the keys use. */
+function attachMidi(id) {
+  if (midiInput) midiInput.onmidimessage = null;
+  midiInput = null;
+  if (!id || !midiAccess) return;
+  for (const inp of midiAccess.inputs.values()) {
+    if (inp.id !== id) continue;
+    midiInput = inp;
+    inp.onmidimessage = (ev) => {
+      const [status, note, vel] = ev.data;
+      const kind = status & 0xf0;
+      // A note-on with velocity 0 is a note-off. Every controller does this
+      // and forgetting it leaves notes stuck down forever.
+      if (kind === 0x90 && vel > 0) {
+        noteOn(note, kbInst, manifest.instruments.find((i) => i.name === kbInst)?.era || '8bit',
+          0.08 + (vel / 127) * 0.28);
+        litKey(note - (kbOctave * 12 + 12), true);
+      } else if (kind === 0x80 || (kind === 0x90 && vel === 0)) {
+        noteOff(note);
+        litKey(note - (kbOctave * 12 + 12), false);
+      } else if (kind === 0xb0 && note === 123) {
+        panic();
+      }
+    };
+  }
+}
+
+let kbPlay = null, kbStop = null;
+const kbDown = new Set();
+
 // -------------------------------------------------------------------- views --
 
 let tab = 'tracks';
@@ -1017,6 +1369,11 @@ function render() {
   }
 
   nativeEra = null; markNative();
+  if (tab === 'keys') {
+    setCount(0, 0);
+    main.append(keysView());
+    return;
+  }
   if (tab === 'fx') {
     const g = el('div', 'fxgrid');
     const shown = manifest.fx.filter((x) => hit(x, x.id, x.desc, (x.tags || []).join(' ')));
@@ -1095,7 +1452,20 @@ $('#eqreset').onclick = () => {
   if (bassEq) bassEq.gain.value = 0;
   if (trebEq) trebEq.gain.value = 0;
 };
+addEventListener('keyup', (e) => {
+  const semi = KEYMAP[e.key.toLowerCase()];
+  if (semi !== undefined && kbDown.has(semi)) { kbDown.delete(semi); kbStop?.(semi); }
+});
 addEventListener('keydown', (e) => {
+  if (tab === 'keys' && !e.target.matches('input,textarea,select') && !e.metaKey && !e.ctrlKey) {
+    const semi = KEYMAP[e.key.toLowerCase()];
+    if (semi !== undefined) {
+      e.preventDefault();
+      if (!e.repeat && !kbDown.has(semi)) { kbDown.add(semi); kbPlay?.(semi); }
+      return;
+    }
+    if (e.key === 'Escape' && e.shiftKey) { panic(); kbDown.clear(); return; }
+  }
   if (e.target.matches('input,textarea')) {
     if (e.key === 'Escape') { e.target.value = ''; query = ''; e.target.blur(); render(); }
     return;

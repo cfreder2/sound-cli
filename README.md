@@ -65,6 +65,29 @@ the bar draws that. A cost model built from note counts was tried first and came
 out 45% off in the median case, because vibrato makes a held note several times
 costlier per sample than a short one and counting notes cannot see that.
 
+## Playing and recording
+
+The **Keyboard** tab plays live: computer keys in the tracker layout (Z–M lower
+octave, Q–U upper), the mouse or touch, or a MIDI device if one is plugged in.
+Arm REC, optionally with a count-in and click, play, and the take comes back as
+a score you can hear, copy or download into `tracks/`.
+
+It runs an AudioWorklet over the same `core/voice.js` the renderer uses, so a
+note played on the keyboard and the same note written into a score are the same
+samples. A graph of `OscillatorNode`s would have been quicker to write and would
+have been a second synth. 128-sample blocks at 44.1 kHz put the floor on latency
+at 2.9 ms.
+
+Two things in the recording are worth knowing because they are the parts people
+notice:
+
+- **Quantising rounds to the nearest step**, not down. Rounding down drags
+  everything late, which is what makes a quantised take feel behind the beat.
+- **A chord becomes one voice per note**, since a score voice holds one note per
+  step. Lanes are assigned by which is free rather than by pitch, so a held note
+  stays in one lane instead of moving every time a chord changes shape. Past
+  four at once, notes are reported as dropped rather than silently overwritten.
+
 ## The format
 
 One track is one file, one bar is one line, one step is a column.

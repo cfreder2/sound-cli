@@ -10,6 +10,8 @@ import { parseFx, renderFx } from '../core/fx.js';
 import { encodeWav } from '../core/wav.js';
 import { quantize, quantizeError, lfsr, Biquad, panGains } from '../core/dsp.js';
 import { instrumentFor, INSTRUMENTS } from '../core/instruments.js';
+import { quantise, toScore } from '../core/record.js';
+import { Voice } from '../core/voice.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const tracks = readdirSync(join(ROOT, 'tracks')).filter((f) => f.endsWith('.snd'));
@@ -261,4 +263,100 @@ test('24-bit samples are little-endian three-byte words', () => {
   const b = encodeWav(new Float32Array([0.5]), new Float32Array([-0.5]), 44100, 24);
   const val = b[44] | (b[45] << 8) | (b[46] << 16);
   assert.equal(val, Math.round(0.5 * 8388607));
+});
+
+
+// --- recording ---------------------------------------------------------------
+
+const ST = 60 / 104 / 4;
+
+test('quantising rounds to the nearest step, not down', () => {
+  // Played 4 ms LATE and 4 ms EARLY. Both belong on the same step; rounding
+  // down would drag the late one a whole step behind.
+  const q = quantise([
+    { note: 60, start: 0.004, end: ST * 2 },
+    { note: 62, start: ST * 4 - 0.004, end: ST * 6 },
+  ], { bpm: 104, beats: 16, grid: 1 });
+  assert.equal(q.voices[0][0], 'c4');
+  assert.equal(q.voices[0][4], 'd4');
+});
+
+test('a chord becomes one voice per note', () => {
+  const q = quantise([
+    { note: 60, start: 0, end: ST * 4 },
+    { note: 64, start: 0.003, end: ST * 4 },
+    { note: 67, start: 0.007, end: ST * 4 },
+  ], { bpm: 104, beats: 16, grid: 1 });
+  assert.equal(q.voices.length, 3);
+  assert.deepEqual(q.voices.map((v) => v[0]), ['c4', 'e4', 'g4']);
+});
+
+test('a melody after a chord reuses the freed voice', () => {
+  const q = quantise([
+    { note: 60, start: 0, end: ST * 2 },
+    { note: 64, start: 0, end: ST * 2 },
+    { note: 72, start: ST * 4, end: ST * 6 },
+  ], { bpm: 104, beats: 16, grid: 1 });
+  assert.equal(q.voices.length, 2, 'three notes, never three at once');
+  assert.equal(q.voices[0][4], 'c5', 'the later note goes back in lane one');
+});
+
+test('held notes become dots, not repeats', () => {
+  const q = quantise([{ note: 60, start: 0, end: ST * 4 }], { bpm: 104, beats: 16, grid: 1 });
+  assert.deepEqual(q.voices[0].slice(0, 5), ['c4', '.', '.', '.', '-']);
+});
+
+test('more than four at once is reported, not silently dropped', () => {
+  const ev = [60, 62, 64, 65, 67, 69].map((note) => ({ note, start: 0, end: ST * 2 }));
+  const q = quantise(ev, { bpm: 104, beats: 16, grid: 1, maxVoices: 4 });
+  assert.equal(q.voices.length, 4);
+  assert.equal(q.dropped, 2);
+});
+
+test('a recorded take parses back as a score', () => {
+  const q = quantise([
+    { note: 60, start: 0, end: ST * 4 },
+    { note: 64, start: ST * 4, end: ST * 8 },
+    { note: 67, start: ST * 8, end: ST * 16 },
+  ], { bpm: 104, beats: 16, grid: 1 });
+  const t = loadScore(toScore(q, { id: 'take', inst: 'lead', era: '8bit' }), 'take.snd');
+  assert.equal(t.bpm, 104);
+  assert.equal(t.totalBars, 1);
+  assert.ok(t.voices.length >= 1);
+  assert.equal(t.voices[0].bars[0][0].note, 60);
+});
+
+test('snapping to eighths halves the resolution', () => {
+  const q = quantise([{ note: 60, start: ST * 1.4, end: ST * 3 }], { bpm: 104, beats: 16, grid: 2 });
+  const at = q.voices[0].findIndex((c) => c !== '-');
+  assert.equal(at % 2, 0, 'an eighth-note grid can only land on even sixteenths');
+});
+
+// --- the live gate -----------------------------------------------------------
+
+test('a held Voice sustains, and release starts the tail', () => {
+  const inst = INSTRUMENTS.strings;
+  const v = new Voice(inst, 69, { gain: 0.3, dur: Infinity });
+  const L = new Float32Array(44100), R = new Float32Array(44100);
+  v.fill(L, R, null, 0, 44100);
+  const energy = (a, b) => {
+    let s = 0;
+    for (let i = a; i < b; i++) s += L[i] * L[i];
+    return s / (b - a);
+  };
+  assert.ok(energy(30000, 40000) > 1e-7, 'still sounding a second in');
+  v.release();
+  const L2 = new Float32Array(44100), R2 = new Float32Array(44100);
+  v.fill(L2, R2, null, 0, 44100);
+  let tail = 0;
+  for (let i = 0; i < L2.length; i++) if (Math.abs(L2[i]) > 1e-4) tail = i;
+  assert.ok(tail > 0 && tail < 44100 * 0.6, `release should fade out, ended at ${(tail / 44100).toFixed(2)}s`);
+});
+
+test('Voice reports when it is finished', () => {
+  const v = new Voice(INSTRUMENTS.pulse25, 69, { gain: 0.3, dur: 0.05 });
+  const L = new Float32Array(44100), R = new Float32Array(44100);
+  const alive = v.fill(L, R, null, 0, 44100);
+  assert.equal(alive, false);
+  assert.equal(v.done, true);
 });

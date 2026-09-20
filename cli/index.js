@@ -310,7 +310,7 @@ const VERBS = {
   async build() {
     const dir = resolve(positional[1] || flag('out', join(ROOT, 'site')));
     mkdirSync(join(dir, 'core'), { recursive: true });
-    const files = ['index.html', 'render-worker.js'];
+    const files = ['index.html', 'render-worker.js', 'live-worklet.js'];
     for (const f of files) writeFileSync(join(dir, f), readFileSync(join(ROOT, 'ui', f)));
     for (const f of readdirSync(join(ROOT, 'core')).filter((x) => x.endsWith('.js'))) {
       writeFileSync(join(dir, 'core', f), readFileSync(join(ROOT, 'core', f)));

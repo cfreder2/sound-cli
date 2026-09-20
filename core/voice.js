@@ -169,11 +169,8 @@ export class Voice {
   fill(L, R, S, at, count) {
     const { env, vib } = this;
     const nesEnvelope = !env;
-    let alive = false;
-
     for (const ly of this.layers) {
       if (ly.ended) continue;
-      alive = true;
       // How long this layer may sound. A rendered note is capped at its own
       // length plus the release, which can cut the envelope off mid-decay --
       // piano decays for 0.85 s and a sixteenth note gets 0.49 s of it. That
@@ -231,7 +228,10 @@ export class Voice {
     }
 
     this.pos += count;
-    if (!alive) this.done = true;
+    // Checked AFTER the block, not before it. Testing at the top meant a voice
+    // that finished during this call still reported itself alive, so the
+    // worklet held it for one more block before dropping it.
+    this.done = this.layers.every((l) => l.ended);
     return !this.done;
   }
 }
