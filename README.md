@@ -111,7 +111,7 @@ and two originals.
 | `runner` | Original stage theme, native 8-bit. Sections, fills, sweeps, an arrangement |
 | `layers` | **A teaching track.** Four bars, six times, one more voice each pass |
 
-**Effects** — 82, each defining both eras in the same file. The previewer has a
+**Effects** — 84, each defining both eras in the same file. The previewer has a
 search box (`/` to focus) that filters on name, description and tags.
 
 | | |
@@ -129,7 +129,7 @@ search box (`/` to focus) that filters on name, description and tags.
 | puzzle / ui | `blip` `select` `pop` `correct` `wrong` `notify` |
 | strategy | `build` |
 | arcade | `gameover` `extralife` `hurt` `death` |
-| ambience | `fire` `wind` `door` |
+| ambience | `fire` `wind` `door` `fireworks` `fireworks-finale` |
 
 The eleven explosions differ by mechanism, not by gain. `-mine` is 79% of its
 energy in the first 20 ms with a 0.05 s tail; `-distant` has no transient at
@@ -137,6 +137,12 @@ all and 91% of its energy below 200 Hz, because air absorbs high frequencies
 over distance; `-underwater` has 0.5% above 2 kHz; `-plasma` is tonal where the
 rest are broadband; `-huge` runs 3.65 s. `-debris` is the aftermath on its own,
 meant to be fired 200 ms behind any of the others.
+
+`fireworks` is a seven-second display of six shells at three apparent
+distances. Distance is modelled, not faked: air absorbs high frequencies, so
+the near shells measure 31% above 3 kHz while the far ones measure **0.0%**,
+and per-layer `send=` makes the far ones mostly reflection — which is what puts
+them *behind* the near ones rather than merely under them.
 
 ## Levels, and why `mix=` means something
 
