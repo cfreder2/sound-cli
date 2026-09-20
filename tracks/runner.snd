@@ -1,0 +1,89 @@
+# RUNNER -- an original stage theme, and the one native 8-bit track in the book.
+#
+# D minor, 150 BPM, written in the idiom rather than lifted from it: a driving
+# sixteenth lead, a bass that alternates root and octave instead of sitting on
+# the beat, an arpeggio standing in for a chord the voice count cannot afford,
+# and a fill in the fourth bar so a section ARRIVES rather than merely ends.
+#
+# Run this one 16-bit and listen to what is lost as well as gained. The FM
+# lead is fatter and the kit is wider, but the 12.5% pulse has a nasal bite
+# that nothing in the 16-bit set reproduces, and the dry mix makes the
+# sixteenths articulate in a way the echo send blurs. Neither is better.
+
+@track runner
+  name   RUNNER
+  bpm    150
+  beats  16
+  era    8bit
+  tags   game action original
+
+@section intro
+@voice lead inst=lead mix=0.20
+  -   -   -   -   -   -   -   -   d4/ .   .   .   .   .   .   .
+  d5  .   d5  .   d5  .   -   -   a5  .   a5  .   -   -   -   -
+  f5  .   .   .   e5  .   .   .   d5  .   .   .   c5  .   .   .
+  bb4 .   .   .   .   .   .   .   a4  .   .   .   .   .   .   .
+@voice bass inst=bass mix=0.17
+  -   -   -   -   -   -   -   -   d2  .   .   .   .   .   .   .
+  d2  .   .   .   .   .   .   .   d2  .   .   .   .   .   .   .
+  bb2 .   .   .   .   .   .   .   g2  .   .   .   .   .   .   .
+  a2  .   .   .   .   .   .   .   a2  .   a3  .   a2  .   a3  .
+@voice drums inst=kit mix=0.10
+  -   -   -   -   -   -   -   -   -   -   -   -   -   -   -   -
+  -   -   -   -   -   -   -   -   -   -   -   -   -   -   -   -
+  -   -   -   -   -   -   -   -   -   -   -   -   -   -   -   -
+  -   -   -   -   -   -   -   -   -   -   -   -   x   .   x   .
+
+@section A
+@voice lead inst=lead mix=0.20
+  d5  .   a4  .   d5  f5  e5  d5  a4  .   .   .   d5  .   .   .
+  c5  .   g4  .   c5  e5  d5  c5  g4  .   .   .   bb4 .   .   .
+  bb4 .   f4  .   bb4 d5  c5  bb4 f4  .   .   .   a4  .   .   .
+  a4  .   e5  .   d5  c5  bb4 a4  g4  .   .   .   a4  .   .   .
+@voice under inst=pulse12 mix=0.07
+  f4  .   .   .   f4  .   .   .   f4  .   .   .   f4  .   .   .
+  e4  .   .   .   e4  .   .   .   e4  .   .   .   g4  .   .   .
+  d4  .   .   .   d4  .   .   .   d4  .   .   .   f4  .   .   .
+  c#4 .   .   .   c#4 .   .   .   c#4 .   .   .   e4  .   .   .
+@voice arp inst=arp mix=0.06
+  dm  .   .   .   .   .   .   .   dm  .   .   .   .   .   .   .
+  c   .   .   .   .   .   .   .   c   .   .   .   .   .   .   .
+  bb  .   .   .   .   .   .   .   bb  .   .   .   .   .   .   .
+  a   .   .   .   .   .   .   .   a   .   .   .   .   .   .   .
+@voice bass inst=bass mix=0.17
+  d2  .   d3  .   d2  .   d3  .   d2  .   d3  .   a2  .   a3  .
+  c2  .   c3  .   c2  .   c3  .   c2  .   c3  .   g2  .   g3  .
+  bb2 .   bb3 .   bb2 .   bb3 .   bb2 .   bb3 .   f2  .   f3  .
+  a2  .   a3  .   a2  .   a3  .   a2  .   e3  .   a2  .   e3  .
+@voice drums inst=kit mix=0.11
+  k   .   h   .   s   .   h   .   k   .   h   .   s   .   h   .
+  k   .   h   .   s   .   h   .   k   .   h   .   s   .   h   .
+  k   .   h   .   s   .   h   .   k   .   h   .   s   .   h   .
+  k   .   h   .   s   .   h   .   s   s   s   s   t   t   x   x
+
+@section B
+# The lift: the tune goes up a register and the sixteenths give way to a line
+# that can breathe, so the return of A lands as a return instead of a loop.
+@voice lead inst=lead-echo mix=0.19
+  f5  .   .   e5  d5  .   c5  .   d5  .   .   .   .   .   .   .
+  g5  .   .   f5  e5  .   d5  .   e5  .   .   .   .   .   .   .
+  a5~ .   .   g5  f5  .   e5  .   d5  .   c5  .   bb4 .   a4  .
+  d5~ .   .   .   a4  .   .   .   d5  .   .   .   .   .   .   .
+@voice arp inst=arp mix=0.07
+  bb  .   .   .   .   .   .   .   f   .   .   .   .   .   .   .
+  c   .   .   .   .   .   .   .   g   .   .   .   .   .   .   .
+  dm  .   .   .   .   .   .   .   bb  .   .   .   .   .   .   .
+  a   .   .   .   .   .   .   .   a   .   .   .   .   .   .   .
+@voice bass inst=bass mix=0.17
+  bb2 .   .   .   f2  .   .   .   bb2 .   .   .   f2  .   .   .
+  c2  .   .   .   g2  .   .   .   c2  .   .   .   g2  .   .   .
+  d2  .   .   .   a2  .   .   .   bb2 .   .   .   f2  .   .   .
+  a2  .   .   .   e3  .   .   .   a2  .   a3  .   a2  .   e3  .
+@voice drums inst=kit mix=0.11
+  k   .   .   .   s   .   .   .   k   .   .   .   s   .   .   .
+  k   .   .   .   s   .   .   .   k   .   .   .   s   .   h   .
+  k   .   h   .   s   .   h   .   k   .   h   .   s   .   h   .
+  k   .   h   .   s   .   h   .   s   .   s   .   t   t   x   .
+
+@order intro A A B A A B A
+  loop 1

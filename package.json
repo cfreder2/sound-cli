@@ -1,0 +1,20 @@
+{
+  "name": "sound-cli",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Music and sound effects for games: plain-text scores, one synth, 8-bit and 16-bit eras",
+  "bin": { "sound": "cli/index.js" },
+  "exports": {
+    ".": "./core/index.js",
+    "./runtime": "./core/index.js"
+  },
+  "scripts": {
+    "test": "node --test test/core.test.js",
+    "view": "node cli/index.js view"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {},
+  "optionalDependencies": {
+    "@breezystack/lamejs": "^1.2.7"
+  }
+}

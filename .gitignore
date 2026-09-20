@@ -1,0 +1,11 @@
+# Rendered audio is DERIVED. The score is the source, the renderer is
+# deterministic, and `sound render` reproduces any of this byte for byte --
+# so committing WAVs would be committing build output, and a 15 MB binary
+# that changes whenever a note changes is the fastest way to make a repo
+# unreviewable. Goldens, when they arrive, go in test/golden/ and are the
+# one deliberate exception.
+audio/
+node_modules/
+*.wav
+*.mp3
+!test/golden/*.wav

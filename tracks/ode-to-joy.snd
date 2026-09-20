@@ -1,0 +1,89 @@
+# Beethoven -- Symphony No. 9, 4th movement, the "Ode to Joy" theme.
+# Public domain. Transposed to C major and harmonised in the usual way; the
+# melody is exact.
+#
+# Sixteen bars of 4/4, sixteen sixteenths each, so a quarter note is four
+# columns. Almost all melody and almost no rhythm, which makes it the clearest
+# thing in the book for hearing what the INSTRUMENT does -- run it 8-bit
+# against 16-bit and the difference is entirely timbre.
+
+@track ode-to-joy
+  name   ODE TO JOY
+  bpm    112
+  beats  16
+  era    16bit
+  tags   classical beethoven public-domain
+
+@section A
+@voice lead inst=strings mix=0.17 pan=-0.1
+  e4  .   .   .   e4  .   .   .   f4  .   .   .   g4  .   .   .
+  g4  .   .   .   f4  .   .   .   e4  .   .   .   d4  .   .   .
+  c4  .   .   .   c4  .   .   .   d4  .   .   .   e4  .   .   .
+  e4  .   .   .   .   .   d4  .   d4  .   .   .   .   .   .   .
+  e4  .   .   .   e4  .   .   .   f4  .   .   .   g4  .   .   .
+  g4  .   .   .   f4  .   .   .   e4  .   .   .   d4  .   .   .
+  c4  .   .   .   c4  .   .   .   d4  .   .   .   e4  .   .   .
+  d4  .   .   .   .   .   c4  .   c4  .   .   .   .   .   .   .
+
+@voice harmony inst=organ mix=0.075 pan=0.14
+  c4  .   .   .   c4  .   .   .   c4  .   .   .   b3  .   .   .
+  b3  .   .   .   c4  .   .   .   c4  .   .   .   b3  .   .   .
+  g3  .   .   .   g3  .   .   .   b3  .   .   .   c4  .   .   .
+  c4  .   .   .   .   .   b3  .   b3  .   .   .   .   .   .   .
+  c4  .   .   .   c4  .   .   .   c4  .   .   .   b3  .   .   .
+  b3  .   .   .   c4  .   .   .   c4  .   .   .   b3  .   .   .
+  g3  .   .   .   g3  .   .   .   b3  .   .   .   c4  .   .   .
+  b3  .   .   .   .   .   g3  .   g3  .   .   .   .   .   .   .
+
+@voice bass inst=fm-bass mix=0.16 pan=0
+  c2  .   .   .   g2  .   .   .   c2  .   .   .   g2  .   .   .
+  g2  .   .   .   g2  .   .   .   c2  .   .   .   g2  .   .   .
+  c2  .   .   .   c2  .   .   .   g2  .   .   .   c2  .   .   .
+  c2  .   .   .   .   .   g2  .   g2  .   .   .   .   .   .   .
+  c2  .   .   .   g2  .   .   .   c2  .   .   .   g2  .   .   .
+  g2  .   .   .   g2  .   .   .   c2  .   .   .   g2  .   .   .
+  c2  .   .   .   c2  .   .   .   g2  .   .   .   c2  .   .   .
+  g2  .   .   .   .   .   c2  .   c2  .   .   .   .   .   .   .
+
+@section B
+@voice lead inst=strings mix=0.17 pan=-0.1
+  d4  .   .   .   d4  .   .   .   e4  .   .   .   c4  .   .   .
+  d4  .   .   .   e4  .   f4  .   e4  .   .   .   c4  .   .   .
+  d4  .   .   .   e4  .   f4  .   e4  .   .   .   d4  .   .   .
+  c4  .   .   .   d4  .   .   .   g3  .   .   .   .   .   .   .
+  e4  .   .   .   e4  .   .   .   f4  .   .   .   g4  .   .   .
+  g4  .   .   .   f4  .   .   .   e4  .   .   .   d4  .   .   .
+  c4  .   .   .   c4  .   .   .   d4  .   .   .   e4  .   .   .
+  d4  .   .   .   .   .   c4  .   c4  .   .   .   .   .   .   .
+
+@voice harmony inst=organ mix=0.075 pan=0.14
+  b3  .   .   .   b3  .   .   .   c4  .   .   .   a3  .   .   .
+  b3  .   .   .   c4  .   d4  .   c4  .   .   .   a3  .   .   .
+  b3  .   .   .   c4  .   d4  .   c4  .   .   .   b3  .   .   .
+  a3  .   .   .   b3  .   .   .   b3  .   .   .   .   .   .   .
+  c4  .   .   .   c4  .   .   .   c4  .   .   .   b3  .   .   .
+  b3  .   .   .   c4  .   .   .   c4  .   .   .   b3  .   .   .
+  g3  .   .   .   g3  .   .   .   b3  .   .   .   c4  .   .   .
+  b3  .   .   .   .   .   g3  .   g3  .   .   .   .   .   .   .
+
+@voice bass inst=fm-bass mix=0.16 pan=0
+  g2  .   .   .   d3  .   .   .   c2  .   .   .   e2  .   .   .
+  g2  .   .   .   g2  .   .   .   c2  .   .   .   a2  .   .   .
+  g2  .   .   .   g2  .   .   .   c2  .   .   .   g2  .   .   .
+  c2  .   .   .   g2  .   .   .   g2  .   .   .   .   .   .   .
+  c2  .   .   .   g2  .   .   .   c2  .   .   .   g2  .   .   .
+  g2  .   .   .   g2  .   .   .   c2  .   .   .   g2  .   .   .
+  c2  .   .   .   c2  .   .   .   g2  .   .   .   c2  .   .   .
+  g2  .   .   .   .   .   c2  .   c2  .   .   .   .   .   .   .
+
+@voice drums inst=kit16 mix=0.05
+  k   .   .   .   h   .   .   .   s   .   .   .   h   .   .   .
+  k   .   .   .   h   .   .   .   s   .   .   .   h   .   .   .
+  k   .   .   .   h   .   .   .   s   .   .   .   h   .   h   .
+  k   .   .   .   h   .   .   .   s   .   .   .   h   .   .   .
+  k   .   .   .   h   .   .   .   s   .   .   .   h   .   .   .
+  k   .   .   .   h   .   .   .   s   .   .   .   h   .   .   .
+  k   .   .   .   h   .   .   .   s   .   .   .   h   .   h   .
+  k   .   .   .   h   .   c   .   .   .   .   .   .   .   .   .
+
+@order A B

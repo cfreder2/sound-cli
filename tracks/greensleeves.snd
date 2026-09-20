@@ -1,0 +1,58 @@
+# Greensleeves -- traditional English, c. 1580. Public domain.
+# Arranged in A minor with the usual Am-G-Am-E harmonisation.
+#
+# 6/8, so a bar here is TWO written measures of six eighths each. The gap in
+# the middle of every line is the barline. Note how much of the tune is one
+# note per column and how little of it is held: 6/8 is a lilting metre and the
+# lilt lives in the placement, which you can see in the grid.
+
+@track greensleeves
+  name   GREENSLEEVES
+  bpm    82
+  beats  12
+  era    16bit
+  tags   classical traditional public-domain
+
+@section A
+@voice lead inst=pluck mix=0.19 pan=-0.1
+  -   -   -   -   -   a4     c5  .   d5  e5  .   f5
+  e5  .   d5  b4  .   g4     a4  .   b4  c5  .   a4
+  g#4 .   .   .   .   .      -   -   -   -   -   a4
+  c5  .   d5  e5  .   f5     e5  .   d5  b4  .   g4
+  a4  .   b4  g#4 .   e4     a4  .   .   .   .   .
+
+@voice pad inst=pad mix=0.06 oct=-1 pan=0.18
+  a3  .   .   .   .   .      a3  .   .   .   .   .
+  g3  .   .   .   .   .      a3  .   .   .   .   .
+  e3  .   .   .   .   .      e3  .   .   .   .   .
+  a3  .   .   .   .   .      g3  .   .   .   .   .
+  a3  .   .   e3  .   .      a3  .   .   .   .   .
+
+@voice bass inst=fm-bass mix=0.14 oct=-1
+  a2  .   .   e3  .   .      a2  .   .   e3  .   .
+  g2  .   .   d3  .   .      a2  .   .   e3  .   .
+  e2  .   .   b2  .   .      e2  .   .   b2  .   .
+  a2  .   .   e3  .   .      g2  .   .   d3  .   .
+  a2  .   .   e3  .   .      a2  .   .   .   .   .
+
+@section B
+# "Greensleeves was all my joy" -- the answering strain, a fourth higher.
+@voice lead inst=pluck mix=0.19 pan=-0.1
+  g5  .   .   f5  e5  .      d5  .   b4  g4  .   a4
+  b4  .   c5  a4  .   a4     g#4 .   .   .   .   .
+  g5  .   .   f5  e5  .      d5  .   b4  g4  .   a4
+  b4  .   c5  a4  .   g#4    a4  .   .   .   .   .
+
+@voice pad inst=pad mix=0.06 oct=-1 pan=0.18
+  c4  .   .   .   .   .      g3  .   .   .   .   .
+  a3  .   .   .   .   .      e3  .   .   .   .   .
+  c4  .   .   .   .   .      g3  .   .   .   .   .
+  a3  .   .   e3  .   .      a3  .   .   .   .   .
+
+@voice bass inst=fm-bass mix=0.14 oct=-1
+  c3  .   .   g3  .   .      g2  .   .   d3  .   .
+  a2  .   .   e3  .   .      e2  .   .   b2  .   .
+  c3  .   .   g3  .   .      g2  .   .   d3  .   .
+  a2  .   .   e3  .   .      a2  .   .   .   .   .
+
+@order A B A B

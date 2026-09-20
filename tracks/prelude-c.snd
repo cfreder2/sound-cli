@@ -1,0 +1,51 @@
+# J.S. Bach -- Prelude No. 1 in C major, BWV 846 (Das wohltemperierte Klavier I)
+# Public domain. Bars 1-12 as written, plus a closing tonic bar added to end
+# the excerpt; no other change.
+#
+# Every bar is the same eight-sixteenth figure played twice: two low notes,
+# then a three-note shape repeated. Bach wrote an arpeggio study, which makes
+# this the single best piece in the book for hearing what a chip arpeggio
+# voice is FOR -- the whole prelude is one channel cycling a chord, which is
+# the technique the NES was built around 250 years later.
+
+@track prelude-c
+  name   PRELUDE IN C
+  bpm    68
+  beats  16
+  era    16bit
+  tags   classical bach public-domain
+
+@note The figure is [bass] [tenor] [a b c] [a b c], twice per bar.
+
+@voice right inst=piano mix=0.17 pan=-0.08
+  c3  e3  g3  c4  e4  g3  c4  e4   c3  e3  g3  c4  e4  g3  c4  e4
+  c3  d3  a3  d4  f4  a3  d4  f4   c3  d3  a3  d4  f4  a3  d4  f4
+  b2  d3  g3  d4  f4  g3  d4  f4   b2  d3  g3  d4  f4  g3  d4  f4
+  c3  e3  g3  c4  e4  g3  c4  e4   c3  e3  g3  c4  e4  g3  c4  e4
+  c3  e3  a3  e4  a4  a3  e4  a4   c3  e3  a3  e4  a4  a3  e4  a4
+  c3  d3  f#3 a3  d4  f#3 a3  d4   c3  d3  f#3 a3  d4  f#3 a3  d4
+  b2  d3  g3  d4  g4  g3  d4  g4   b2  d3  g3  d4  g4  g3  d4  g4
+  b2  c3  e3  g3  c4  e3  g3  c4   b2  c3  e3  g3  c4  e3  g3  c4
+  a2  c3  e3  g3  c4  e3  g3  c4   a2  c3  e3  g3  c4  e3  g3  c4
+  d2  a2  d3  f#3 c4  d3  f#3 c4   d2  a2  d3  f#3 c4  d3  f#3 c4
+  g2  b2  d3  g3  b3  d3  g3  b3   g2  b2  d3  g3  b3  d3  g3  b3
+  g2  b2  f3  g3  b3  f3  g3  b3   g2  b2  f3  g3  b3  f3  g3  b3
+  c3  e3  g3  c4  e4  g3  c4  e4   c3  e3  g3  c4  e4  g3  c4  e4
+
+# The pedal note under it. Bach does not write this; a chip arrangement wants
+# it, because a piano's sustain does the job of holding the harmony and a
+# 16-voice synth has no pedal.
+@voice pedal inst=pad mix=0.055 oct=-1 pan=0.1
+  c3  .   .   .   .   .   .   .    .   .   .   .   .   .   .   .
+  c3  .   .   .   .   .   .   .    .   .   .   .   .   .   .   .
+  b2  .   .   .   .   .   .   .    .   .   .   .   .   .   .   .
+  c3  .   .   .   .   .   .   .    .   .   .   .   .   .   .   .
+  c3  .   .   .   .   .   .   .    .   .   .   .   .   .   .   .
+  c3  .   .   .   .   .   .   .    .   .   .   .   .   .   .   .
+  b2  .   .   .   .   .   .   .    .   .   .   .   .   .   .   .
+  b2  .   .   .   .   .   .   .    .   .   .   .   .   .   .   .
+  a2  .   .   .   .   .   .   .    .   .   .   .   .   .   .   .
+  d2  .   .   .   .   .   .   .    .   .   .   .   .   .   .   .
+  g2  .   .   .   .   .   .   .    .   .   .   .   .   .   .   .
+  g2  .   .   .   .   .   .   .    .   .   .   .   .   .   .   .
+  c3  .   .   .   .   .   .   .    .   .   .   .   .   .   .   .

@@ -1,0 +1,234 @@
+// The instruments, as data.
+//
+// LAYERING IS THE WHOLE TRICK AND IT LIVES HERE, IN THE OPEN. A voice is a
+// list of layers summed together, and almost everything that makes a chip part
+// sound like an instrument rather than a test tone is a second layer:
+//
+//   an octave down   a square is thin; a triangle an octave under it puts back
+//                    the body the square has no harmonics for. VECTRENCH's
+//                    lead has done this since the first version and it is why
+//                    the lead reads as one fat voice instead of one reedy one.
+//   a detune         two saws a few cents apart beat against each other. That
+//                    beating is what "wide" means. At 0 cents it is one saw.
+//   a delayed copy   a quieter repeat a dotted eighth later. AXI's lead does
+//                    this, and it is the only depth a single mono pulse
+//                    channel can have.
+//   a noise layer    a tone alone has no attack. A 20 ms burst of filtered
+//                    noise on the front is the stick, the pick, the splash.
+//
+// Each entry declares `layers`, and the renderer sums them. Nothing about
+// layering is hidden in a function, so `sound explain <inst>` can print it and
+// a person can change it without reading the renderer.
+//
+//   osc      pulse | nestri | tri | saw | sine | noise | fm
+//   duty     pulse width, 0.125 / 0.25 / 0.5 on real hardware
+//   semi     transpose, in semitones
+//   detune   in cents, for beating between layers
+//   gain     this layer's share of the voice
+//   delay    seconds late, for a slapback layer
+//   bed      noise flavour: long (hiss) | metal (short register) | white
+
+// --- FM, for the 16-bit era -------------------------------------------------
+//
+// Four operators. `mod` lists, per operator, which operators modulate it;
+// `out` lists which operators are heard. That is the YM2612's algorithm table
+// written as a graph instead of eight diagrams, and it covers the shapes that
+// matter: a chain is metallic and hard, parallel carriers are organ-like, and
+// one modulator at a low ratio with a fast decay is every brass patch ever.
+
+export const ALGOS = {
+  chain: { mod: [[1], [2], [3], []], out: [0] },
+  brass: { mod: [[1], [], [], []], out: [0, 2] },
+  bell: { mod: [[1, 2], [], [], []], out: [0] },
+  organ: { mod: [[], [], [], []], out: [0, 1, 2] },
+  bass: { mod: [[1], [], [], []], out: [0] },
+};
+
+const op = (ratio, level, a, d, s, r, fb = 0) => ({ ratio, level, a, d, s, r, fb });
+
+export const INSTRUMENTS = {
+
+  // ======================================================= 8-bit: the 2A03 ==
+  //
+  // Pitch quantised to the eleven-bit period register and the envelope counted
+  // down in fifteen steps. Both are audible and both are the point.
+
+  pulse12: {
+    era: '8bit', quantize: true, env: 'nes',
+    desc: 'Thin nasal lead. 12.5% duty -- the one everybody remembers.',
+    layers: [{ osc: 'pulse', duty: 0.125, gain: 1 }],
+  },
+  pulse25: {
+    era: '8bit', quantize: true, env: 'nes',
+    desc: 'Reedy lead. 25% duty, the workhorse.',
+    layers: [{ osc: 'pulse', duty: 0.25, gain: 1 }],
+  },
+  pulse50: {
+    era: '8bit', quantize: true, env: 'nes',
+    desc: 'Hollow square. 50% duty has NO even harmonics -- the clarinet one.',
+    layers: [{ osc: 'pulse', duty: 0.5, gain: 1 }],
+  },
+  // The layered lead: the reason VECTRENCH's lead sounds like an instrument.
+  lead: {
+    era: '8bit', quantize: true, env: 'nes', cut: 3000,
+    desc: 'LAYERED: 25% pulse + a stepped triangle an octave under for body.',
+    layers: [
+      { osc: 'pulse', duty: 0.25, gain: 1 },
+      { osc: 'nestri', semi: -12, gain: 0.42 },
+    ],
+  },
+  // The layered lead with a slapback, which is AXI's trick.
+  'lead-echo': {
+    era: '8bit', quantize: true, env: 'nes', cut: 3200,
+    desc: 'LAYERED: 12.5% pulse, a triangle under it, and a dotted-eighth repeat.',
+    layers: [
+      { osc: 'pulse', duty: 0.125, gain: 1 },
+      { osc: 'nestri', semi: -12, gain: 0.35 },
+      { osc: 'pulse', duty: 0.125, gain: 0.4, delay: 0.17 },
+    ],
+  },
+  tri: {
+    era: '8bit', quantize: true, env: 'nes',
+    desc: 'The hardware triangle: a 32-level staircase, not a smooth ramp.',
+    layers: [{ osc: 'nestri', gain: 1 }],
+  },
+  bass: {
+    era: '8bit', quantize: true, env: 'nes', cut: 900,
+    desc: 'LAYERED: hardware triangle plus a quiet 50% square for definition.',
+    layers: [
+      { osc: 'nestri', gain: 1 },
+      { osc: 'pulse', duty: 0.5, gain: 0.3 },
+    ],
+  },
+  arp: {
+    era: '8bit', quantize: true, env: 'nes', cut: 2600, arpRate: 1,
+    desc: 'One voice cycling a chord fast enough that the ear hears a chord.',
+    layers: [{ osc: 'pulse', duty: 0.5, gain: 1 }],
+  },
+  kit: { era: '8bit', drums: '8bit', desc: 'The 2A03 kit: noise channel and a swept sine.' },
+
+  // ==================================================== 16-bit: SNES/Genesis ==
+  //
+  // True equal temperament, ADSR rather than a fifteen-step counter, stereo,
+  // FM operators and an echo send. Everything the 8-bit entries deliberately
+  // refuse.
+
+  'fm-lead': {
+    // The low-pass is not taste. FM built by summing sines has no band limit,
+    // so a bright patch on a high note folds its upper sidebands back down as
+    // an inharmonic whistle. Rolling off near 7 kHz costs nothing audible and
+    // removes the folded energy.
+    era: '16bit', env: { a: 0.006, d: 0.12, s: 0.72, r: 0.12 }, cut: 7000,
+    desc: 'FM brass lead, two carriers, one modulator falling fast -- the stab.',
+    fm: {
+      algo: 'brass',
+      ops: [op(1, 1, 0.005, 0.10, 0.80, 0.10), op(2, 0.55, 0.004, 0.09, 0.22, 0.08),
+        op(1.005, 0.45, 0.006, 0.12, 0.75, 0.12), op(1, 0, 0, 0, 0, 0)],
+    },
+    layers: [{ osc: 'fm', gain: 1 }],
+  },
+  'fm-bass': {
+    era: '16bit', env: { a: 0.003, d: 0.14, s: 0.55, r: 0.09 }, cut: 2600,
+    desc: 'FM bass: one modulator at 1:1 with feedback. The Genesis thump.',
+    fm: {
+      algo: 'bass',
+      ops: [op(1, 1, 0.002, 0.16, 0.60, 0.08), op(1, 0.72, 0.002, 0.07, 0.12, 0.05, 0.35),
+        op(1, 0, 0, 0, 0, 0), op(1, 0, 0, 0, 0, 0)],
+    },
+    layers: [{ osc: 'fm', gain: 1 }, { osc: 'sine', semi: -12, gain: 0.35 }],
+  },
+  'fm-bell': {
+    era: '16bit', env: { a: 0.002, d: 0.9, s: 0.06, r: 0.5 }, cut: 9000,
+    desc: 'FM bell: inharmonic ratios, long decay. Menus and pickups.',
+    fm: {
+      algo: 'bell',
+      ops: [op(1, 1, 0.001, 0.8, 0.05, 0.5), op(3.51, 0.42, 0.001, 0.35, 0.02, 0.3),
+        op(7.02, 0.18, 0.001, 0.22, 0.01, 0.2), op(1, 0, 0, 0, 0, 0)],
+    },
+    layers: [{ osc: 'fm', gain: 1 }],
+  },
+  strings: {
+    era: '16bit', env: { a: 0.09, d: 0.25, s: 0.80, r: 0.30 }, cut: 4200,
+    desc: 'LAYERED: three saws detuned +-7 cents. The beating IS the ensemble.',
+    layers: [
+      { osc: 'saw', detune: -7, gain: 0.55 },
+      { osc: 'saw', detune: 0, gain: 0.55 },
+      { osc: 'saw', detune: 7, gain: 0.55 },
+      { osc: 'sine', semi: -12, gain: 0.22 },
+    ],
+  },
+  pad: {
+    era: '16bit', env: { a: 0.35, d: 0.4, s: 0.85, r: 0.6 }, cut: 2600,
+    desc: 'LAYERED: detuned saws plus a fifth. Slow attack, long tail.',
+    layers: [
+      { osc: 'saw', detune: -9, gain: 0.4 },
+      { osc: 'saw', detune: 9, gain: 0.4 },
+      { osc: 'tri', semi: 7, gain: 0.25 },
+      { osc: 'sine', semi: -12, gain: 0.3 },
+    ],
+  },
+  piano: {
+    era: '16bit', env: { a: 0.002, d: 0.85, s: 0.14, r: 0.28 }, cut: 5200,
+    desc: 'LAYERED: a struck tone, an octave shimmer, and a noise-burst hammer.',
+    layers: [
+      { osc: 'tri', gain: 0.8 },
+      { osc: 'saw', gain: 0.22 },
+      { osc: 'sine', semi: 12, gain: 0.16 },
+      { osc: 'noise', bed: 'white', gain: 0.07, hold: 0.012 },
+    ],
+  },
+  organ: {
+    era: '16bit', env: { a: 0.01, d: 0.05, s: 0.95, r: 0.06 },
+    desc: 'LAYERED: drawbar additive -- root, octave, fifth, two octaves.',
+    layers: [
+      { osc: 'sine', gain: 0.6 },
+      { osc: 'sine', semi: 12, gain: 0.35 },
+      { osc: 'sine', semi: 19, gain: 0.2 },
+      { osc: 'sine', semi: 24, gain: 0.12 },
+    ],
+  },
+  pluck: {
+    era: '16bit', env: { a: 0.002, d: 0.22, s: 0.0, r: 0.1 }, cut: 3800,
+    desc: 'LAYERED: a short saw plus a noise pick. Harp, guitar, koto.',
+    layers: [
+      { osc: 'saw', gain: 0.75 },
+      { osc: 'tri', semi: 12, gain: 0.2 },
+      { osc: 'noise', bed: 'white', gain: 0.1, hold: 0.008 },
+    ],
+  },
+  'kit16': { era: '16bit', drums: '16bit', desc: 'A sampled-style kit: layered body, snap and air.' },
+};
+
+/** The instrument an era falls back to when a score names one from the other. */
+export const SUBSTITUTE = {
+  '8bit': {
+    'fm-lead': 'lead', 'fm-bass': 'bass', 'fm-bell': 'pulse12', strings: 'pulse50',
+    pad: 'tri', piano: 'pulse25', organ: 'pulse50', pluck: 'pulse12', kit16: 'kit',
+  },
+  '16bit': {
+    pulse12: 'fm-lead', pulse25: 'fm-lead', pulse50: 'organ', lead: 'fm-lead',
+    'lead-echo': 'fm-lead', tri: 'fm-bass', bass: 'fm-bass', arp: 'pluck', kit: 'kit16',
+  },
+};
+
+/**
+ * The instrument a voice actually gets, for the era being rendered.
+ *
+ * This is what makes side-by-side A/B possible from ONE score: the same file
+ * plays on the 2A03 or on a 16-bit rig, and the mapping is declared above
+ * rather than decided per track. A score may still name an instrument from the
+ * other era on purpose -- an FM bass under 8-bit leads is a real choice -- so
+ * substitution only happens when the eras disagree.
+ */
+export function instrumentFor(name, era) {
+  const want = INSTRUMENTS[name];
+  if (!want) return { name: era === '16bit' ? 'fm-lead' : 'pulse25', inst: INSTRUMENTS[era === '16bit' ? 'fm-lead' : 'pulse25'], substituted: true };
+  if (want.era === era) return { name, inst: want, substituted: false };
+  const alt = SUBSTITUTE[era]?.[name];
+  if (alt && INSTRUMENTS[alt]) return { name: alt, inst: INSTRUMENTS[alt], substituted: true, from: name };
+  return { name, inst: want, substituted: false };
+}
+
+export const listInstruments = (era) => Object.entries(INSTRUMENTS)
+  .filter(([, v]) => !era || v.era === era)
+  .map(([k, v]) => ({ name: k, era: v.era, desc: v.desc, layers: v.layers?.length ?? 0 }));

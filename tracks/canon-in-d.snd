@@ -1,0 +1,118 @@
+# Pachelbel -- Canon in D. Public domain.
+# Arranged: the eight-bar ground bass exactly as written, the harpsichord-style
+# chord figuration above it, and the first violin's entry in whole notes. The
+# later divisions are not transcribed here.
+#
+# THIS IS THE FILE TO READ IF YOU WANT TO SEE WHAT @section AND @order BUY.
+# The ground is eight bars. Written out four times it would be 32 bars of
+# duplicated text that can drift apart under editing. Written once and ordered
+# `ground ground+melody ...`, one edit to the bass changes every repeat, and
+# the diff shows one line.
+
+@track canon-in-d
+  name   CANON IN D
+  bpm    64
+  beats  16
+  era    16bit
+  tags   classical pachelbel public-domain
+
+@section ground
+@voice bass inst=fm-bass mix=0.16
+  d2  .   .   .   .   .   .   .   d2  .   .   .   a2  .   .   .
+  a2  .   .   .   .   .   .   .   a2  .   .   .   e3  .   .   .
+  b2  .   .   .   .   .   .   .   b2  .   .   .   f#3 .   .   .
+  f#2 .   .   .   .   .   .   .   f#2 .   .   .   c#3 .   .   .
+  g2  .   .   .   .   .   .   .   g2  .   .   .   d3  .   .   .
+  d2  .   .   .   .   .   .   .   d2  .   .   .   a2  .   .   .
+  g2  .   .   .   .   .   .   .   g2  .   .   .   b2  .   .   .
+  a2  .   .   .   .   .   .   .   a2  .   .   .   e3  .   .   .
+
+@voice chords inst=arp mix=0.075 pan=0.12
+  d   .   .   .   .   .   .   .   d   .   .   .   .   .   .   .
+  a   .   .   .   .   .   .   .   a   .   .   .   .   .   .   .
+  bm  .   .   .   .   .   .   .   bm  .   .   .   .   .   .   .
+  f#m .   .   .   .   .   .   .   f#m .   .   .   .   .   .   .
+  g   .   .   .   .   .   .   .   g   .   .   .   .   .   .   .
+  d   .   .   .   .   .   .   .   d   .   .   .   .   .   .   .
+  g   .   .   .   .   .   .   .   g   .   .   .   .   .   .   .
+  a   .   .   .   .   .   .   .   a   .   .   .   .   .   .   .
+
+@section entry
+@voice bass inst=fm-bass mix=0.16
+  d2  .   .   .   .   .   .   .   d2  .   .   .   a2  .   .   .
+  a2  .   .   .   .   .   .   .   a2  .   .   .   e3  .   .   .
+  b2  .   .   .   .   .   .   .   b2  .   .   .   f#3 .   .   .
+  f#2 .   .   .   .   .   .   .   f#2 .   .   .   c#3 .   .   .
+  g2  .   .   .   .   .   .   .   g2  .   .   .   d3  .   .   .
+  d2  .   .   .   .   .   .   .   d2  .   .   .   a2  .   .   .
+  g2  .   .   .   .   .   .   .   g2  .   .   .   b2  .   .   .
+  a2  .   .   .   .   .   .   .   a2  .   .   .   e3  .   .   .
+
+@voice chords inst=arp mix=0.075 pan=0.12
+  d   .   .   .   .   .   .   .   d   .   .   .   .   .   .   .
+  a   .   .   .   .   .   .   .   a   .   .   .   .   .   .   .
+  bm  .   .   .   .   .   .   .   bm  .   .   .   .   .   .   .
+  f#m .   .   .   .   .   .   .   f#m .   .   .   .   .   .   .
+  g   .   .   .   .   .   .   .   g   .   .   .   .   .   .   .
+  d   .   .   .   .   .   .   .   d   .   .   .   .   .   .   .
+  g   .   .   .   .   .   .   .   g   .   .   .   .   .   .   .
+  a   .   .   .   .   .   .   .   a   .   .   .   .   .   .   .
+
+# The first violin, in whole notes -- one per bar of the ground, which is the
+# canon's entire premise.
+@voice violin1 inst=strings mix=0.15 pan=-0.22
+  f#5 .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  e5  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  d5  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  c#5 .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  b4  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  a4  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  b4  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  c#5 .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+
+@section second
+@voice bass inst=fm-bass mix=0.16
+  d2  .   .   .   .   .   .   .   d2  .   .   .   a2  .   .   .
+  a2  .   .   .   .   .   .   .   a2  .   .   .   e3  .   .   .
+  b2  .   .   .   .   .   .   .   b2  .   .   .   f#3 .   .   .
+  f#2 .   .   .   .   .   .   .   f#2 .   .   .   c#3 .   .   .
+  g2  .   .   .   .   .   .   .   g2  .   .   .   d3  .   .   .
+  d2  .   .   .   .   .   .   .   d2  .   .   .   a2  .   .   .
+  g2  .   .   .   .   .   .   .   g2  .   .   .   b2  .   .   .
+  a2  .   .   .   .   .   .   .   a2  .   .   .   e3  .   .   .
+
+@voice chords inst=arp mix=0.075 pan=0.12
+  d   .   .   .   .   .   .   .   d   .   .   .   .   .   .   .
+  a   .   .   .   .   .   .   .   a   .   .   .   .   .   .   .
+  bm  .   .   .   .   .   .   .   bm  .   .   .   .   .   .   .
+  f#m .   .   .   .   .   .   .   f#m .   .   .   .   .   .   .
+  g   .   .   .   .   .   .   .   g   .   .   .   .   .   .   .
+  d   .   .   .   .   .   .   .   d   .   .   .   .   .   .   .
+  g   .   .   .   .   .   .   .   g   .   .   .   .   .   .   .
+  a   .   .   .   .   .   .   .   a   .   .   .   .   .   .   .
+
+@voice violin1 inst=strings mix=0.15 pan=-0.22
+  f#5 .   .   .   .   .   .   .   e5  .   .   .   .   .   .   .
+  d5  .   .   .   .   .   .   .   c#5 .   .   .   .   .   .   .
+  b4  .   .   .   .   .   .   .   a4  .   .   .   .   .   .   .
+  b4  .   .   .   .   .   .   .   c#5 .   .   .   .   .   .   .
+  d5  .   .   .   .   .   .   .   c#5 .   .   .   .   .   .   .
+  b4  .   .   .   .   .   .   .   a4  .   .   .   .   .   .   .
+  g4  .   .   .   .   .   .   .   f#4 .   .   .   .   .   .   .
+  g4  .   .   .   .   .   .   .   e4  .   .   .   .   .   .   .
+
+# The canon: the same line, one statement behind. This is the piece's whole
+# idea, and in this format it is literally the same eight lines pasted into a
+# second voice -- which is the clearest possible demonstration that a score is
+# text you can manipulate.
+@voice violin2 inst=strings mix=0.11 pan=0.28
+  -   -   -   -   -   -   -   -   -   -   -   -   -   -   -   -
+  f#5 .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  e5  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  d5  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  c#5 .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  b4  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  a4  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  b4  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+
+@order ground entry second

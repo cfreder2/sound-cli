@@ -1,0 +1,30 @@
+# Beethoven -- Bagatelle in A minor, WoO 59 ("Fur Elise"), the A section.
+# Public domain. Arranged: the right hand is the LEAD voice, the left hand's
+# rising A-E-A / E-E-G# arpeggio is the BASS voice, which is where the tune
+# people hum actually comes from.
+#
+# Written in 3/8, so a bar here is TWO written measures -- twelve sixteenths,
+# six per measure. The vertical bar of spaces in the middle of each line is
+# where the measure line falls. That is the argument for a text format in one
+# picture: the grid is the notation.
+
+@track fur-elise
+  name   FUR ELISE
+  bpm    68
+  beats  12
+  era    16bit
+  tags   classical beethoven public-domain
+
+@voice lead inst=piano mix=0.19 pan=-0.06
+  -   -   -   -   e5  d#5    e5  d#5 e5  b4  d5  c5
+  a4  .   .   .   .   .      b4  .   .   .   .   .
+  c5  .   .   -   e4  .      e5  d#5 e5  b4  d5  c5
+  a4  .   .   .   .   .      b4  .   .   .   .   .
+  c5  .   .   -   e4  .      c5  .   b4  .   a4  .
+
+@voice bass inst=pluck mix=0.13 oct=-1 pan=0.08
+  -   -   -   -   -   -      a3  .   e4  .   a4  .
+  a3  .   e4  .   a4  .      e3  .   e4  .   g#4 .
+  a3  .   e4  .   a4  .      a3  .   e4  .   a4  .
+  a3  .   e4  .   a4  .      e3  .   e4  .   g#4 .
+  a3  .   e4  .   a4  .      a3  .   e4  .   a4  .

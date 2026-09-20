@@ -1,0 +1,145 @@
+# LAYERS -- a teaching track. Four bars of the same phrase, six times, with
+# one more voice added each pass.
+#
+# Play it through once and you have heard the whole argument of this library:
+# nothing here gets louder or more complicated, and by the last section it
+# sounds like a band. That is layering, and it is the difference between a
+# score that sounds like a test tone and one that sounds like music.
+#
+#   bare    one 25% pulse. A tune, and nothing else.
+#   body    + the same line on a triangle an octave down. THE single biggest
+#           improvement in the file, and it costs one voice.
+#   ground  + a bass alternating root and octave. Now there is a floor.
+#   colour  + an arpeggio. One voice cycling a chord: harmony for the price
+#           of a melody line.
+#   pulse   + drums. Time, which the ear was supplying for itself until now.
+#   air     + a counter-line a sixth above the lead. The top of the mix.
+#
+# `sound render layers --era 8bit` and `--era 16bit` are the same six steps on
+# two different rigs.
+
+@track layers
+  name   LAYERS
+  bpm    116
+  beats  16
+  era    8bit
+  tags   demo teaching
+
+@section bare
+@voice lead inst=pulse25 mix=0.20
+  a4  .   .   .   c5  .   .   .   e5  .   .   .   d5  .   .   .
+  c5  .   .   .   a4  .   .   .   b4  .   .   .   .   .   .   .
+  f4  .   .   .   a4  .   .   .   c5  .   .   .   b4  .   .   .
+  a4  .   .   .   g4  .   .   .   a4  .   .   .   .   .   .   .
+
+@section body
+@voice lead inst=pulse25 mix=0.20
+  a4  .   .   .   c5  .   .   .   e5  .   .   .   d5  .   .   .
+  c5  .   .   .   a4  .   .   .   b4  .   .   .   .   .   .   .
+  f4  .   .   .   a4  .   .   .   c5  .   .   .   b4  .   .   .
+  a4  .   .   .   g4  .   .   .   a4  .   .   .   .   .   .   .
+@voice sub inst=tri mix=0.09 oct=-1
+  a4  .   .   .   c5  .   .   .   e5  .   .   .   d5  .   .   .
+  c5  .   .   .   a4  .   .   .   b4  .   .   .   .   .   .   .
+  f4  .   .   .   a4  .   .   .   c5  .   .   .   b4  .   .   .
+  a4  .   .   .   g4  .   .   .   a4  .   .   .   .   .   .   .
+
+@section ground
+@voice lead inst=pulse25 mix=0.20
+  a4  .   .   .   c5  .   .   .   e5  .   .   .   d5  .   .   .
+  c5  .   .   .   a4  .   .   .   b4  .   .   .   .   .   .   .
+  f4  .   .   .   a4  .   .   .   c5  .   .   .   b4  .   .   .
+  a4  .   .   .   g4  .   .   .   a4  .   .   .   .   .   .   .
+@voice sub inst=tri mix=0.09 oct=-1
+  a4  .   .   .   c5  .   .   .   e5  .   .   .   d5  .   .   .
+  c5  .   .   .   a4  .   .   .   b4  .   .   .   .   .   .   .
+  f4  .   .   .   a4  .   .   .   c5  .   .   .   b4  .   .   .
+  a4  .   .   .   g4  .   .   .   a4  .   .   .   .   .   .   .
+@voice bass inst=bass mix=0.17
+  a2  .   a3  .   a2  .   a3  .   a2  .   a3  .   e2  .   e3  .
+  a2  .   a3  .   a2  .   a3  .   e2  .   e3  .   e2  .   b2  .
+  f2  .   f3  .   f2  .   f3  .   c2  .   c3  .   c2  .   g2  .
+  a2  .   a3  .   e2  .   e3  .   a2  .   a3  .   a2  .   e3  .
+
+@section colour
+@voice lead inst=pulse25 mix=0.20
+  a4  .   .   .   c5  .   .   .   e5  .   .   .   d5  .   .   .
+  c5  .   .   .   a4  .   .   .   b4  .   .   .   .   .   .   .
+  f4  .   .   .   a4  .   .   .   c5  .   .   .   b4  .   .   .
+  a4  .   .   .   g4  .   .   .   a4  .   .   .   .   .   .   .
+@voice sub inst=tri mix=0.09 oct=-1
+  a4  .   .   .   c5  .   .   .   e5  .   .   .   d5  .   .   .
+  c5  .   .   .   a4  .   .   .   b4  .   .   .   .   .   .   .
+  f4  .   .   .   a4  .   .   .   c5  .   .   .   b4  .   .   .
+  a4  .   .   .   g4  .   .   .   a4  .   .   .   .   .   .   .
+@voice arp inst=arp mix=0.07
+  am  .   .   .   .   .   .   .   am  .   .   .   em  .   .   .
+  am  .   .   .   .   .   .   .   em  .   .   .   e7  .   .   .
+  f   .   .   .   .   .   .   .   c   .   .   .   g   .   .   .
+  am  .   .   .   em  .   .   .   am  .   .   .   e7  .   .   .
+@voice bass inst=bass mix=0.17
+  a2  .   a3  .   a2  .   a3  .   a2  .   a3  .   e2  .   e3  .
+  a2  .   a3  .   a2  .   a3  .   e2  .   e3  .   e2  .   b2  .
+  f2  .   f3  .   f2  .   f3  .   c2  .   c3  .   c2  .   g2  .
+  a2  .   a3  .   e2  .   e3  .   a2  .   a3  .   a2  .   e3  .
+
+@section pulse
+@voice lead inst=pulse25 mix=0.20
+  a4  .   .   .   c5  .   .   .   e5  .   .   .   d5  .   .   .
+  c5  .   .   .   a4  .   .   .   b4  .   .   .   .   .   .   .
+  f4  .   .   .   a4  .   .   .   c5  .   .   .   b4  .   .   .
+  a4  .   .   .   g4  .   .   .   a4  .   .   .   .   .   .   .
+@voice sub inst=tri mix=0.09 oct=-1
+  a4  .   .   .   c5  .   .   .   e5  .   .   .   d5  .   .   .
+  c5  .   .   .   a4  .   .   .   b4  .   .   .   .   .   .   .
+  f4  .   .   .   a4  .   .   .   c5  .   .   .   b4  .   .   .
+  a4  .   .   .   g4  .   .   .   a4  .   .   .   .   .   .   .
+@voice arp inst=arp mix=0.07
+  am  .   .   .   .   .   .   .   am  .   .   .   em  .   .   .
+  am  .   .   .   .   .   .   .   em  .   .   .   e7  .   .   .
+  f   .   .   .   .   .   .   .   c   .   .   .   g   .   .   .
+  am  .   .   .   em  .   .   .   am  .   .   .   e7  .   .   .
+@voice bass inst=bass mix=0.17
+  a2  .   a3  .   a2  .   a3  .   a2  .   a3  .   e2  .   e3  .
+  a2  .   a3  .   a2  .   a3  .   e2  .   e3  .   e2  .   b2  .
+  f2  .   f3  .   f2  .   f3  .   c2  .   c3  .   c2  .   g2  .
+  a2  .   a3  .   e2  .   e3  .   a2  .   a3  .   a2  .   e3  .
+@voice drums inst=kit mix=0.11
+  k   .   h   .   s   .   h   .   k   .   h   .   s   .   h   .
+  k   .   h   .   s   .   h   .   k   .   h   .   s   .   h   .
+  k   .   h   .   s   .   h   .   k   .   h   .   s   .   h   .
+  k   .   h   .   s   .   h   .   k   .   h   .   s   s   x   x
+
+@section air
+@voice lead inst=pulse25 mix=0.20
+  a4  .   .   .   c5  .   .   .   e5  .   .   .   d5  .   .   .
+  c5  .   .   .   a4  .   .   .   b4  .   .   .   .   .   .   .
+  f4  .   .   .   a4  .   .   .   c5  .   .   .   b4  .   .   .
+  a4  .   .   .   g4  .   .   .   a4  .   .   .   .   .   .   .
+@voice sub inst=tri mix=0.09 oct=-1
+  a4  .   .   .   c5  .   .   .   e5  .   .   .   d5  .   .   .
+  c5  .   .   .   a4  .   .   .   b4  .   .   .   .   .   .   .
+  f4  .   .   .   a4  .   .   .   c5  .   .   .   b4  .   .   .
+  a4  .   .   .   g4  .   .   .   a4  .   .   .   .   .   .   .
+@voice air inst=pulse12 mix=0.065
+  e5  .   .   .   a5  .   .   .   c6  .   .   .   b5  .   .   .
+  a5  .   .   .   e5  .   .   .   g#5 .   .   .   .   .   .   .
+  c5  .   .   .   f5  .   .   .   a5  .   .   .   g5  .   .   .
+  e5  .   .   .   b4  .   .   .   a5  .   .   .   .   .   .   .
+@voice arp inst=arp mix=0.07
+  am  .   .   .   .   .   .   .   am  .   .   .   em  .   .   .
+  am  .   .   .   .   .   .   .   em  .   .   .   e7  .   .   .
+  f   .   .   .   .   .   .   .   c   .   .   .   g   .   .   .
+  am  .   .   .   em  .   .   .   am  .   .   .   e7  .   .   .
+@voice bass inst=bass mix=0.17
+  a2  .   a3  .   a2  .   a3  .   a2  .   a3  .   e2  .   e3  .
+  a2  .   a3  .   a2  .   a3  .   e2  .   e3  .   e2  .   b2  .
+  f2  .   f3  .   f2  .   f3  .   c2  .   c3  .   c2  .   g2  .
+  a2  .   a3  .   e2  .   e3  .   a2  .   a3  .   a2  .   e3  .
+@voice drums inst=kit mix=0.11
+  k   .   h   .   s   .   h   .   k   .   h   .   s   .   h   .
+  k   .   h   .   s   .   h   .   k   .   h   .   s   .   h   .
+  k   .   h   .   s   .   h   .   k   .   h   .   s   .   h   .
+  k   .   h   .   s   .   h   .   k   .   h   .   s   s   x   x
+
+@order bare body ground colour pulse air

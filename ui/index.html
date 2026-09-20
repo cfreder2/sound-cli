@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sound Preview</title>
+<style>
+  :root{
+    --bg:#0d1014; --panel:#141a20; --panel2:#1b232b; --line:#26313b;
+    --fg:#e8eef3; --dim:#8b9aa7; --dimmer:#5d6b78;
+    --a:#ffb74d;          /* 8-bit  */
+    --b:#6fe6ff;          /* 16-bit */
+    --good:#6dffa8; --hot:#ff7a6b;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg);
+    font:14px/1.55 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif}
+  body{padding:0 16px 64px}
+  a{color:var(--b)}
+  .wrap{max-width:1180px;margin:0 auto}
+
+  header{position:sticky;top:0;z-index:20;background:linear-gradient(var(--bg) 72%,transparent);
+    padding:14px 0 10px;margin:0 -16px;padding-left:16px;padding-right:16px}
+  .bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  h1{font:600 15px/1 var(--mono);letter-spacing:.16em;margin:0;text-transform:uppercase}
+  h1 span{color:var(--dimmer);font-weight:400}
+  .grow{flex:1}
+
+  .ab{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .ab button{border:0;background:var(--panel);color:var(--dim);font:600 12px/1 var(--mono);
+    letter-spacing:.1em;padding:9px 16px;cursor:pointer;transition:.12s}
+  .ab button:hover{color:var(--fg)}
+  .ab button.on:first-child{background:var(--a);color:#1a1200}
+  .ab button.on:last-child{background:var(--b);color:#001820}
+  .ab button:first-child{border-right:1px solid var(--line)}
+
+  .btn{border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:7px;
+    font:600 12px/1 var(--mono);letter-spacing:.08em;padding:9px 14px;cursor:pointer}
+  .btn:hover{background:var(--panel2);border-color:#3a4a58}
+  .btn.tiny{padding:5px 9px;font-size:11px;letter-spacing:.04em}
+  .btn[disabled]{opacity:.4;cursor:default}
+  input[type=range]{accent-color:var(--b);width:110px}
+
+  nav{display:flex;gap:4px;margin:14px 0 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  nav button{border:0;border-bottom:2px solid transparent;background:none;color:var(--dim);
+    font:600 12px/1 var(--mono);letter-spacing:.12em;padding:11px 14px;cursor:pointer}
+  nav button.on{color:var(--fg);border-bottom-color:var(--a)}
+
+  .grid{display:grid;grid-template-columns:270px 1fr;gap:18px;align-items:start}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}}
+
+  .list{border:1px solid var(--line);border-radius:9px;background:var(--panel);overflow:hidden}
+  .list button{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);
+    background:none;color:var(--fg);padding:11px 13px;cursor:pointer}
+  .list button:last-child{border-bottom:0}
+  .list button:hover{background:var(--panel2)}
+  .list button.on{background:var(--panel2);box-shadow:inset 3px 0 var(--a)}
+  .list .t{font:600 13px/1.3 var(--mono);letter-spacing:.04em}
+  .list .s{color:var(--dim);font:11px/1.5 var(--mono);margin-top:3px}
+
+  .card{border:1px solid var(--line);border-radius:9px;background:var(--panel);padding:16px}
+  .card h2{margin:0 0 3px;font:600 17px/1.2 var(--mono);letter-spacing:.04em}
+  .meta{color:var(--dim);font:11px/1.6 var(--mono);letter-spacing:.03em}
+  .blurb{color:var(--dim);font-size:13px;margin:13px 0;white-space:pre-wrap;
+    border-left:2px solid var(--line);padding-left:12px;max-height:190px;overflow:auto}
+
+  canvas{width:100%;height:76px;display:block;background:#0a0d11;border:1px solid var(--line);
+    border-radius:6px;margin:14px 0 8px}
+  .transport{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+  .time{font:11px/1 var(--mono);color:var(--dim);min-width:92px}
+
+  table{width:100%;border-collapse:collapse;font:12px/1.5 var(--mono);margin-top:12px}
+  th,td{text-align:left;padding:6px 9px;border-bottom:1px solid var(--line)}
+  th{color:var(--dimmer);font-weight:600;letter-spacing:.08em;font-size:10px;text-transform:uppercase}
+  td.n{color:var(--dim)}
+  .swap{color:var(--a)}
+
+  details{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+  summary{cursor:pointer;color:var(--dim);font:11px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase}
+  pre{font:11.5px/1.5 var(--mono);color:#c8d4de;background:#0a0d11;border:1px solid var(--line);
+    border-radius:6px;padding:12px;overflow:auto;max-height:460px;margin-top:12px}
+
+  .fxgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+  .fx{border:1px solid var(--line);border-radius:9px;background:var(--panel);padding:13px}
+  .fx .n{font:600 13px/1.2 var(--mono);letter-spacing:.04em}
+  .fx .d{color:var(--dim);font-size:12px;margin:5px 0 10px;min-height:32px}
+  .fx .row{display:flex;gap:7px}
+  .fx .row button{flex:1}
+  .fire{border:1px solid var(--line);border-radius:6px;padding:8px;cursor:pointer;
+    font:600 11px/1 var(--mono);letter-spacing:.1em;background:var(--panel2);color:var(--dim)}
+  .fire.a:hover,.fire.a.lit{background:var(--a);color:#1a1200;border-color:var(--a)}
+  .fire.b:hover,.fire.b.lit{background:var(--b);color:#001820;border-color:var(--b)}
+  .layers{display:flex;gap:3px;margin-top:9px;flex-wrap:wrap}
+  .layers button{flex:1;min-width:26px;border:1px solid var(--line);background:#0a0d11;color:var(--dimmer);
+    border-radius:4px;font:10px/1 var(--mono);padding:6px 0;cursor:pointer}
+  .layers button:hover{color:var(--fg);border-color:var(--b)}
+  .hint{color:var(--dimmer);font-size:11px;margin-top:7px}
+
+  .prose{max-width:74ch}
+  .prose h3{font:600 13px/1.3 var(--mono);letter-spacing:.1em;text-transform:uppercase;
+    color:var(--a);margin:26px 0 8px}
+  .prose p{color:#c3ced8;margin:0 0 12px}
+  .prose code{font:12px var(--mono);background:var(--panel2);padding:2px 5px;border-radius:4px;color:var(--b)}
+  .prose ul{color:#c3ced8;padding-left:20px}
+  .prose li{margin-bottom:7px}
+  .note{border-left:2px solid var(--a);padding-left:13px;color:var(--dim);font-size:13px;margin:16px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="bar">
+    <h1>Sound <span>// preview</span></h1>
+    <div class="ab" id="era">
+      <button data-era="8bit" class="on">8-BIT</button>
+      <button data-era="16bit">16-BIT</button>
+    </div>
+    <button class="btn" id="stop">STOP</button>
+    <div class="grow"></div>
+    <span class="meta">VOL</span><input type="range" id="vol" min="0" max="1" step="0.01" value="0.75">
+  </div>
+  <nav id="tabs">
+    <button data-tab="tracks" class="on">Tracks</button>
+    <button data-tab="fx">Effects</button>
+    <button data-tab="layering">Layering</button>
+    <button data-tab="instruments">Instruments</button>
+  </nav>
+</header>
+<main id="main"></main>
+</div>
+
+<script type="module">
+// Both eras of the same thing are decoded and started together, sample
+// aligned, and the A/B switch only moves gain between them. That is what makes
+// the comparison honest: no reload, no restart, no drift, and the ear is
+// comparing two timbres at the same instant in the same bar instead of
+// comparing one timbre to its own memory four seconds ago.
+
+const ERAS = ['8bit', '16bit'];
+let ctx, master, era = '8bit', manifest = null;
+let now = null;            // { sources, gains, buffers, startedAt, dur, id, kind }
+let raf = 0;
+
+const $ = (s, r = document) => r.querySelector(s);
+const el = (t, c, h) => { const n = document.createElement(t); if (c) n.className = c; if (h != null) n.innerHTML = h; return n; };
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+function audio() {
+  if (!ctx) {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    master = ctx.createGain();
+    master.gain.value = +$('#vol').value;
+    master.connect(ctx.destination);
+  }
+  if (ctx.state !== 'running') ctx.resume();
+  return ctx;
+}
+
+const cache = new Map();
+async function buffers(kind, id, params = {}) {
+  const key = `${kind}:${id}:${JSON.stringify(params)}`;
+  if (cache.has(key)) return cache.get(key);
+  const p = Promise.all(ERAS.map(async (e) => {
+    const q = new URLSearchParams({ kind, id, era: e, ...params });
+    const r = await fetch(`/api/audio?${q}`);
+    if (!r.ok) throw new Error(await r.text());
+    return audio().decodeAudioData(await r.arrayBuffer());
+  }));
+  cache.set(key, p);
+  return p;
+}
+
+function stop() {
+  if (now) { for (const s of now.sources) { try { s.stop(); } catch {} } now = null; }
+  cancelAnimationFrame(raf); raf = 0;
+  document.querySelectorAll('.lit').forEach((n) => n.classList.remove('lit'));
+  if ($('#playbtn')) $('#playbtn').textContent = 'PLAY';
+}
+
+/** Start every era at once; only the selected one is audible. */
+function playPair(bufs, kind, id, offset = 0) {
+  stop();
+  const c = audio();
+  const at = c.currentTime + 0.04;
+  const sources = [], gains = [];
+  bufs.forEach((b, i) => {
+    const s = c.createBufferSource(); s.buffer = b;
+    const g = c.createGain();
+    g.gain.value = ERAS[i] === era ? 1 : 0;
+    s.connect(g); g.connect(master);
+    s.start(at, offset);
+    sources.push(s); gains.push(g);
+  });
+  now = { sources, gains, buffers: bufs, startedAt: at - offset, dur: bufs[0].duration, id, kind };
+  sources[0].onended = () => { if (now && now.sources[0] === sources[0]) stop(); };
+  return now;
+}
+
+function setEra(e) {
+  era = e;
+  document.querySelectorAll('#era button').forEach((b) => b.classList.toggle('on', b.dataset.era === e));
+  if (now) {
+    // A short ramp, not a jump: a hard gain switch clicks, and the click is
+    // the loudest thing in the comparison.
+    now.gains.forEach((g, i) => g.gain.setTargetAtTime(ERAS[i] === era ? 1 : 0, ctx.currentTime, 0.012));
+  }
+  render();
+}
+
+// ------------------------------------------------------------------ tracks --
+
+function drawWave(cv, buf, pos) {
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  const w = cv.clientWidth, h = cv.clientHeight;
+  cv.width = w * dpr; cv.height = h * dpr;
+  const g = cv.getContext('2d'); g.scale(dpr, dpr);
+  g.clearRect(0, 0, w, h);
+  const d = buf.getChannelData(0), step = Math.max(1, Math.floor(d.length / w));
+  g.strokeStyle = era === '8bit' ? '#ffb74d' : '#6fe6ff';
+  g.globalAlpha = 0.85; g.lineWidth = 1;
+  g.beginPath();
+  for (let x = 0; x < w; x++) {
+    let lo = 1, hi = -1;
+    for (let i = 0; i < step; i++) { const v = d[x * step + i] || 0; if (v < lo) lo = v; if (v > hi) hi = v; }
+    g.moveTo(x + 0.5, h / 2 - hi * h * 0.46);
+    g.lineTo(x + 0.5, h / 2 - lo * h * 0.46);
+  }
+  g.stroke();
+  if (pos != null) {
+    g.globalAlpha = 1; g.fillStyle = '#fff';
+    g.fillRect(Math.round(pos * w), 0, 1.5, h);
+  }
+}
+
+function trackView(t) {
+  const c = el('div', 'card');
+  c.append(el('h2', null, esc(t.name)));
+  c.append(el('div', 'meta', `${t.bpm} BPM · ${t.beats} steps/bar · ${t.bars} bars · ${t.seconds}s · `
+    + `${t.voices.length} voices · written for ${t.era} · ${esc(t.tags.join(' '))}`));
+  if (t.blurb.length) c.append(el('div', 'blurb', esc(t.blurb.join('\n'))));
+
+  const cv = el('canvas'); c.append(cv);
+  const tr = el('div', 'transport');
+  const play = el('button', 'btn', 'PLAY'); play.id = 'playbtn';
+  const time = el('div', 'time', '0:00 / 0:00');
+  tr.append(play, time);
+  const hint = el('span', 'meta', 'switch 8-BIT / 16-BIT while it plays — it stays in the same bar');
+  tr.append(hint);
+  c.append(tr);
+
+  let bufs = null;
+  const tick = () => {
+    if (!now || now.id !== t.id) return;
+    const p = Math.min(1, (ctx.currentTime - now.startedAt) / now.dur);
+    drawWave(cv, now.buffers[ERAS.indexOf(era)], p);
+    time.textContent = `${mmss((ctx.currentTime - now.startedAt))} / ${mmss(now.dur)}`;
+    raf = requestAnimationFrame(tick);
+  };
+
+  const load = async () => {
+    play.textContent = '...'; play.disabled = true;
+    bufs = await buffers('track', t.id);
+    play.disabled = false; play.textContent = 'PLAY';
+    drawWave(cv, bufs[ERAS.indexOf(era)], null);
+    time.textContent = `0:00 / ${mmss(bufs[0].duration)}`;
+  };
+  load();
+
+  play.onclick = async () => {
+    if (now && now.id === t.id) { stop(); return; }
+    if (!bufs) bufs = await buffers('track', t.id);
+    playPair(bufs, 'track', t.id);
+    play.textContent = 'STOP';
+    tick();
+  };
+  cv.onclick = async (e) => {
+    if (!bufs) return;
+    const off = (e.offsetX / cv.clientWidth) * bufs[0].duration;
+    playPair(bufs, 'track', t.id, off);
+    play.textContent = 'STOP';
+    tick();
+  };
+
+  const tbl = el('table');
+  tbl.innerHTML = '<tr><th>voice</th><th>instrument</th><th>on 8-bit</th><th>on 16-bit</th><th>mix</th><th>pan</th></tr>';
+  for (const v of t.voices) {
+    const sub = (e) => {
+      const i = manifest.instruments.find((x) => x.name === v.inst);
+      if (!i) return '?';
+      if (i.era === e) return `<span class="n">${v.inst}</span>`;
+      const s = manifest.substitute[e]?.[v.inst];
+      return s ? `<span class="swap">${s}</span>` : `<span class="n">${v.inst}</span>`;
+    };
+    tbl.append(el('tr', null, `<td>${esc(v.id)}</td><td>${esc(v.inst)}</td>`
+      + `<td>${sub('8bit')}</td><td>${sub('16bit')}</td>`
+      + `<td class="n">${v.mix}</td><td class="n">${v.pan || 0}</td>`));
+  }
+  c.append(tbl);
+
+  const d = el('details');
+  d.append(el('summary', null, `tracks/${t.id}.snd — the whole score, as text`));
+  d.append(el('pre', null, esc(t.source)));
+  c.append(d);
+  return c;
+}
+
+// ----------------------------------------------------------------- effects --
+
+function fxCard(f) {
+  const c = el('div', 'fx');
+  c.append(el('div', 'n', esc(f.id)));
+  c.append(el('div', 'd', esc(f.desc)));
+  const row = el('div', 'row');
+  const mk = (e, label) => {
+    const b = el('button', `fire ${e === '8bit' ? 'a' : 'b'}`, label);
+    b.onclick = async () => {
+      const bufs = await buffers('fx', f.id, {});
+      const c2 = audio();
+      const s = c2.createBufferSource(); s.buffer = bufs[ERAS.indexOf(e)];
+      s.connect(master); s.start();
+      b.classList.add('lit'); setTimeout(() => b.classList.remove('lit'), 220);
+    };
+    return b;
+  };
+  row.append(mk('8bit', '8-BIT'), mk('16bit', '16-BIT'));
+  c.append(row);
+
+  const nL = (f.eras[era] || f.eras['8bit'] || []).filter((l) => !/^\s*~/.test(l)).length;
+  const strip = el('div', 'layers');
+  for (let i = 0; i < nL; i++) {
+    const b = el('button', null, String(i + 1));
+    b.title = (f.eras[era] || [])[i] || '';
+    b.onclick = async (ev) => {
+      const params = ev.shiftKey ? { solo: i } : { layers: i + 1 };
+      const bufs = await buffers('fx', f.id, params);
+      const s = audio().createBufferSource();
+      s.buffer = bufs[ERAS.indexOf(era)];
+      s.connect(master); s.start();
+    };
+    strip.append(b);
+  }
+  c.append(strip);
+  c.append(el('div', 'hint', `click ${nL} = layers 1..n · shift-click = that layer alone`));
+
+  const d = el('details');
+  d.append(el('summary', null, `fx/${f.id}.fx`));
+  d.append(el('pre', null, esc(f.source)));
+  c.append(d);
+  return c;
+}
+
+// -------------------------------------------------------------------- views --
+
+let tab = 'tracks';
+let pick = { tracks: null, fx: null };
+
+function render() {
+  const main = $('#main');
+  main.innerHTML = '';
+
+  if (tab === 'tracks') {
+    const g = el('div', 'grid');
+    const list = el('div', 'list');
+    for (const t of manifest.tracks) {
+      const b = el('button', pick.tracks === t.id ? 'on' : '');
+      b.append(el('div', 't', esc(t.name)));
+      b.append(el('div', 's', `${t.seconds}s · ${t.bars} bars · ${t.voices.length}v · ${esc(t.tags[0] || '')}`));
+      b.onclick = () => { pick.tracks = t.id; stop(); render(); };
+      list.append(b);
+    }
+    g.append(list);
+    const t = manifest.tracks.find((x) => x.id === pick.tracks) || manifest.tracks[0];
+    pick.tracks = t.id;
+    g.append(trackView(t));
+    main.append(g);
+    return;
+  }
+
+  if (tab === 'fx') {
+    const note = el('div', 'note',
+      'Every effect exists twice — one <code>@era</code> block per console generation, in the same file. '
+      + 'The numbered strip under each pair is the layer stack: click 3 to hear layers 1 through 3, '
+      + 'shift-click 3 to hear only layer 3, at the level it actually sits at in the mix.');
+    main.append(note);
+    const g = el('div', 'fxgrid');
+    for (const f of manifest.fx) g.append(fxCard(f));
+    main.append(g);
+    return;
+  }
+
+  if (tab === 'instruments') {
+    const g = el('div', 'card');
+    g.append(el('h2', null, 'Instruments'));
+    g.append(el('div', 'meta', 'An instrument is a list of layers that get summed. That is all layering is.'));
+    for (const e of ERAS) {
+      g.append(el('h3', null, e));
+      const t = el('table');
+      t.innerHTML = '<tr><th>name</th><th>layers</th><th>what it is</th></tr>';
+      for (const i of manifest.instruments.filter((x) => x.era === e)) {
+        const L = (i.detail.layers || []).map((l) => {
+          const bits = [l.osc];
+          if (l.duty) bits.push(`${l.duty * 100}%`);
+          if (l.semi) bits.push(`${l.semi > 0 ? '+' : ''}${l.semi}st`);
+          if (l.detune) bits.push(`${l.detune > 0 ? '+' : ''}${l.detune}c`);
+          if (l.delay) bits.push(`+${l.delay}s`);
+          return bits.join(' ');
+        }).join('<br>') || (i.detail.drums ? 'kit' : '—');
+        t.append(el('tr', null, `<td>${esc(i.name)}</td><td class="n">${L}</td><td class="n">${esc(i.desc || '')}</td>`));
+      }
+      g.append(t);
+    }
+    main.append(g);
+    return;
+  }
+
+  // layering
+  const c = el('div', 'card prose');
+  c.innerHTML = `
+<h2 style="font-size:19px">How a sound gets built</h2>
+<p>Everything in this library is a stack of layers summed together. Nothing here uses reverb
+to sound big or compression to sound loud. It sounds like an instrument because three or four
+cheap things are playing at once, and each one is doing a job the others cannot.</p>
+
+<h3>The four jobs</h3>
+<ul>
+<li><strong>Pitch.</strong> The layer carrying the note. On its own it is a test tone.</li>
+<li><strong>Body.</strong> The same note an octave down, usually on a rounder wave. A 25% pulse has
+almost no energy below its fundamental; a triangle underneath puts it back. In
+<code>lead</code> this one layer is the largest single improvement in the file.</li>
+<li><strong>Transient.</strong> 10–30 ms of filtered noise at the very front. The ear locates an event
+by its first 20 ms, so this layer does far more work than its gain suggests. It is the
+pick, the stick, the slap of the water, the click of the switch.</li>
+<li><strong>Width.</strong> A detuned copy, or a delayed one. Two saws seven cents apart beat against
+each other, and that beating is the entire meaning of the word "wide". At zero cents it is
+one saw.</li>
+</ul>
+
+<div class="note">Open the <strong>LAYERS</strong> track. It is four bars, played six times, with one
+more voice added each pass: bare pulse, then body, then bass, then arpeggio, then drums, then a
+counter-line. Nothing gets louder. By the last pass it sounds like a band.</div>
+
+<h3>What changes between the eras</h3>
+<p>The eras are console generations, not audio bit depth. <code>8bit</code> is the NES 2A03 and
+<code>16bit</code> is the SNES/Genesis class of hardware. A score names instruments from one era;
+rendering it in the other substitutes them through a table, which is why one file plays on both.</p>
+<ul>
+<li><strong>Pitch.</strong> 8-bit quantises every note to the eleven-bit period register, so pitches
+drift sharp near the top of the range. That sourness is character and it is kept on purpose.</li>
+<li><strong>Envelope.</strong> 8-bit counts down in fifteen steps. On a short note you hear the stairs.
+16-bit gets a real ADSR.</li>
+<li><strong>Voices.</strong> 8-bit is pulse, pulse, triangle, noise. 16-bit adds four-operator FM,
+detuned saw stacks, and additive drawbars.</li>
+<li><strong>Space.</strong> 8-bit is mono and bone dry. 16-bit is stereo with an echo send, and that
+wetness is half of why the generation sounds like it does.</li>
+<li><strong>Drums.</strong> The 8-bit kick is crushed to four bits, because it was a tiny sample ROM.
+The 16-bit snare adds a tuned tone layer under the noise — that tone is the "crack", and
+without it a snare is a hiss.</li>
+</ul>
+
+<h3>Trying it</h3>
+<ul>
+<li>Play any track, then hit the other era button <em>while it is playing</em>. Both renders are
+running in sync and only the gain moves, so you land in the same bar.</li>
+<li>On the Effects tab, walk a stack up one layer at a time. <code>splash</code>, <code>metal</code>
+and <code>laser</code> are the instructive ones.</li>
+<li><code>sound explain lead</code> prints any instrument's layers in the terminal.</li>
+</ul>
+
+<h3>The rule that matters</h3>
+<p>Every render is loudness-matched before you hear it — tracks to −18 dBFS RMS, effects to −3 dBFS
+peak. Without that the comparison is worthless, because the louder of any two takes is judged
+better regardless of which is actually better, and the 16-bit rig renders several dB quieter than
+the 8-bit one on the same score. What you are hearing between the two buttons is timbre, and only
+timbre.</p>`;
+  main.append(c);
+}
+
+// -------------------------------------------------------------------- wiring --
+
+$('#tabs').onclick = (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  tab = b.dataset.tab;
+  document.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x === b));
+  render();
+};
+$('#era').onclick = (e) => { const b = e.target.closest('button'); if (b) setEra(b.dataset.era); };
+$('#stop').onclick = stop;
+$('#vol').oninput = (e) => { if (master) master.gain.value = +e.target.value; };
+addEventListener('keydown', (e) => {
+  if (e.target.matches('input,textarea')) return;
+  if (e.key === ' ') { e.preventDefault(); $('#playbtn')?.click(); }
+  if (e.key === '1') setEra('8bit');
+  if (e.key === '2') setEra('16bit');
+});
+
+const r = await fetch('/api/manifest');
+manifest = await r.json();
+// The substitution table lives in core/instruments.js and rides along in the
+// manifest, so the page never has to guess what a voice becomes on the other rig.
+manifest.substitute = manifest.substituteTable;
+render();
+</script>
+</body>
+</html>
