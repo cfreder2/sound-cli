@@ -213,7 +213,7 @@ and two originals.
 | `runner` | Original stage theme, native 8-bit. Sections, fills, sweeps, an arrangement |
 | `layers` | **A teaching track.** Four bars, six times, one more voice each pass |
 
-**Effects** — 96, each defining both eras in the same file. The previewer has a
+**Effects** — 100, each defining both eras in the same file. The previewer has a
 search box (`/` to focus) that filters on name, description and tags.
 
 | | |
@@ -225,7 +225,7 @@ search box (`/` to focus) that filters on name, description and tags.
 | fighting | `punch` `block` `slash` `ko` |
 | platformer | `jump` `bounce` `dash` `coin` `checkpoint` `footstep` |
 | rpg / magic | `levelup` `spell` `sparkle` `chest` `potion` `heal` `powerup` |
-| horror | `heartbeat` `stinger` `creak` `thunder` `halloween` |
+| horror | `heartbeat` `stinger` `creak` `door-creak` `ghost` `thunder` `halloween` |
 | sci-fi | `teleport` `forcefield` `scan` `powerdown` `robot` `warp` |
 | racing | `engine` `skid` `gearshift` `countdown` |
 | puzzle / ui | `blip` `select` `pop` `correct` `wrong` `notify` `whoop` |
@@ -233,7 +233,7 @@ search box (`/` to focus) that filters on name, description and tags.
 | arcade | `gameover` `extralife` `hurt` `death` |
 | ambience | `fire` `wind` `door` `fireworks` `fireworks-finale` |
 | animals | `birds` `dog-bark` `cat-meow` `snake-hiss` `owl` |
-| vehicles | `engine` `skid` `gearshift` `car-horn` `truck-horn` `boat-horn` |
+| vehicles | `engine` `skid` `gearshift` `car-horn` `truck-horn` `boat-horn` `siren-police` `siren-twotone` |
 | tabletop | `dice-roll` `wheel-spin` |
 
 The eleven explosions differ by mechanism, not by gain. `-mine` is 79% of its
