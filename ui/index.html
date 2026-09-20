@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sound Preview</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230d1014'/%3E%3Cpath d='M2 8h2V5h2v6h2V3h2v10h2V6h2v2' stroke='%23ffb74d' fill='none' stroke-width='1.4'/%3E%3C/svg%3E">
 <style>
   :root{
     --bg:#0d1014; --panel:#141a20; --panel2:#1b232b; --line:#26313b;
@@ -157,10 +158,18 @@
 
     color:var(--a);margin:26px 0 8px}
   .note{border-left:2px solid var(--a);padding-left:13px;color:var(--dim);font-size:12px;margin:14px 0}
+  #err{display:none;position:fixed;left:12px;right:12px;bottom:12px;z-index:200;max-height:38vh;overflow:auto;
+    border:1px solid var(--hot);border-radius:8px;background:#1b0f0d;color:#ffd9d3;
+    font:11.5px/1.5 var(--mono);padding:11px 13px;white-space:pre-wrap}
+  #err.on{display:block}
+  #err b{color:var(--hot)}
+  #err button{float:right;background:none;border:1px solid var(--hot);color:var(--hot);
+    border-radius:4px;font:10px var(--mono);padding:2px 7px;cursor:pointer}
 </style>
 </head>
 <body>
 <div id="load"></div>
+<div id="err"></div>
 <div class="wrap">
 <header>
   <div class="bar">
@@ -208,6 +217,27 @@ let paused = false, pausedAt = 0, speed = 1, looping = false, nativeEra = null;
 let raf = 0;
 
 const $ = (s, r = document) => r.querySelector(s);
+
+/**
+ * Show failures instead of hanging.
+ *
+ * The previewer once sat on "rendering..." forever because a worker failed to
+ * start and the rejection went into an async IIFE nobody was catching. A tool
+ * that can fail silently will, and then the only symptom is that nothing
+ * happens -- which is the least debuggable thing a program can do.
+ */
+const errBox = () => document.getElementById('err');
+function fail(where, e) {
+  const box = errBox();
+  if (!box) return;
+  const msg = (e && (e.message || e.reason?.message || e.reason || e)) || 'unknown';
+  box.classList.add('on');
+  box.innerHTML += `<button onclick="this.parentNode.classList.remove('on');this.parentNode.innerHTML=''">dismiss</button>`
+    + `<b>${where}</b>\n${String(msg)}\n\n`;
+  console.error(where, e);
+}
+addEventListener('error', (e) => fail('uncaught', e.error || e));
+addEventListener('unhandledrejection', (e) => fail('unhandled promise rejection', e));
 const el = (t, c, h) => { const n = document.createElement(t); if (c) n.className = c; if (h != null) n.innerHTML = h; return n; };
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -275,9 +305,12 @@ function spawn() {
     else task.resolve(m.wav);
   };
   w.onerror = (e) => {
-    for (const [id, t] of pending) if (t.slot === slot) { pending.delete(id); t.reject(new Error(e.message)); }
+    const why = e.message || `worker failed to load (${e.filename || 'render-worker.js'}:${e.lineno || '?'})`;
+    fail('render worker', new Error(why));
+    for (const [id, t] of pending) if (t.slot === slot) { pending.delete(id); t.reject(new Error(why)); }
     slot.busy = false;
   };
+  w.onmessageerror = (e) => fail('worker message', new Error('could not deserialise a worker message'));
   pool.push(slot);
   return slot;
 }
@@ -345,6 +378,20 @@ async function buffers(kind, id, params = {}, onProgress = null) {
 
   cache.set(key, p);
   return p;
+}
+
+/** Where the playhead is, in buffer seconds. Survives pause and speed changes. */
+function position() {
+  if (!now || paused) return pausedAt;
+  const p = now.startOffset + (ctx.currentTime - now.startedAt) * speed;
+  return looping && now.dur ? p % now.dur : Math.min(p, now.dur);
+}
+
+/** Tear down the sources without forgetting where we were. */
+function killSources() {
+  if (!now) return;
+  for (const st of now.stems) for (const s of st.sources) { try { s.onended = null; s.stop(); } catch {} }
+  now.stems = [];
 }
 
 function stop() {
@@ -643,7 +690,7 @@ function trackView(t) {
     lanesBox.innerHTML = '';
     const wait = el('div', 'loading');
     wait.append(el('div', 'spin'), el('span', null,
-      `rendering ${t.voices.length} voices × 2 eras — bars ${from + 1}–${Math.min(t.bars, from + winBars)}`));
+      `bars ${from + 1}–${Math.min(t.bars, from + winBars)} · ${t.voices.length} voices × 2 eras`));
     lanesBox.append(wait);
     const got = await Promise.all(t.voices.map(async (v) => ({
       id: v.id,
@@ -720,8 +767,19 @@ function trackView(t) {
 
   (async () => {
     bPlay.disabled = true;
-    time.textContent = 'rendering…';
-    mixBufs = await buffers('track', t.id);
+    const started = Date.now();
+    try {
+      mixBufs = await buffers('track', t.id, {}, (frac) => {
+        time.textContent = frac >= 1 ? '0:00 / 0:00' : `${Math.round(frac * 100)}%`;
+        barno.textContent = frac >= 1 ? ''
+          : `synthesising ${t.seconds}s · both eras · ${((Date.now() - started) / 1000).toFixed(1)}s`;
+      });
+    } catch (e) {
+      time.textContent = 'failed';
+      barno.textContent = '';
+      fail(`rendering ${t.name}`, e);
+      return;
+    }
     bPlay.disabled = false;
     syncTransport();
     paint();
