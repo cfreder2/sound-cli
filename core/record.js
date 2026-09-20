@@ -10,7 +10,10 @@
 //   polyphony    a voice in a score holds one note per step, so a chord needs
 //                as many voices as it has notes. Splitting by which voice is
 //                free -- rather than by pitch -- keeps a held note in one lane
-//                instead of moving it every time a chord changes shape.
+//                instead of moving it every time a chord changes shape. Eight
+//                lanes, which is more than ten fingers reach on a two-octave
+//                keyboard; the cap exists so a stuck note cannot spawn
+//                hundreds, not to ration them.
 //
 // Lives in core/ so it can be tested without a browser, and so the CLI could
 // import a MIDI file through the same path later.
@@ -21,7 +24,7 @@ import { noteName } from './score.js';
  * @param events [{ note, start, end }] in seconds, start relative to bar one
  * @returns { voices, bars, steps } on a grid of `beats` steps per bar
  */
-export function quantise(events, { bpm = 104, beats = 16, grid = 4, maxVoices = 4 } = {}) {
+export function quantise(events, { bpm = 104, beats = 16, grid = 4, maxVoices = 8 } = {}) {
   const stepTime = 60 / bpm / 4;
   // `grid` is in sixteenths: 1 = every sixteenth, 4 = every quarter.
   const snap = Math.max(1, Math.round(grid));
