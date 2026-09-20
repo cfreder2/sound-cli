@@ -1380,6 +1380,11 @@ function keysView() {
     box.append(opts, note);
     const out = el('div');
     box.append(out);
+    const nameIn = el('input');
+    nameIn.type = 'text'; nameIn.placeholder = 'name for tracks/';
+    nameIn.value = ''; nameIn.style.width = '170px';
+    nameIn.setAttribute('spellcheck', 'false');
+    const saveMsg = el('span', 'meta', '');
 
     const build = () => {
       takeBpm = +bpm.value; takeGrid = +grid.value;
@@ -1416,14 +1421,52 @@ function keysView() {
       };
       const copy = el('button', 'btn tiny', 'COPY');
       copy.onclick = () => { navigator.clipboard?.writeText(text); copy.textContent = 'COPIED'; setTimeout(() => { copy.textContent = 'COPY'; }, 1200); };
-      const dl = el('button', 'btn tiny', 'DOWNLOAD .snd');
+      const dl = el('button', 'btn tiny', 'DOWNLOAD');
       dl.onclick = () => {
         const a2 = document.createElement('a');
         a2.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
-        a2.download = 'take.snd';
+        a2.download = `${nameIn.value || 'take'}.snd`;
         a2.click();
       };
-      bar.append(hear, copy, dl);
+      // Save into tracks/, so a take joins the library instead of sitting in a
+      // downloads folder. Only works against the local server; a static host
+      // has no filesystem and the download is the fallback.
+      const save = el('button', 'btn tiny', 'SAVE TO TRACKS');
+      save.onclick = async () => {
+        const id = (nameIn.value || '').trim();
+        if (!id) { saveMsg.textContent = 'Give it a name first.'; nameIn.focus(); return; }
+        save.disabled = true;
+        saveMsg.textContent = 'saving\u2026';
+        // The id and the display name both come from the box, so a saved take
+        // does not show up in the track list still called TAKE.
+        const named = text
+          .replace('@track take', `@track ${id}`)
+          .replace(/^ {2}name {3}TAKE$/m, `  name   ${id.replace(/-/g, ' ').toUpperCase()}`);
+        try {
+          let r = await fetch('/api/save', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ id, text: named }),
+          });
+          if (r.status === 409) {
+            if (!confirm(`tracks/${id}.snd exists. Overwrite it?`)) { saveMsg.textContent = ''; return; }
+            r = await fetch('/api/save', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ id, text: named, overwrite: true }),
+            });
+          }
+          if (!r.ok) { saveMsg.textContent = await r.text(); return; }
+          const { path } = await r.json();
+          saveMsg.innerHTML = `saved to <b>${esc(path)}</b> \u2014 it is in the Tracks tab now`;
+          manifest = await (await fetch(`data.json?t=${Date.now()}`)).json();
+          manifest.substitute = manifest.substituteTable;
+        } catch {
+          saveMsg.textContent = 'No local server, so use DOWNLOAD and put the file in tracks/.';
+        } finally { save.disabled = false; }
+      };
+      bar.append(hear, copy, save, dl, nameIn);
+      bar.append(saveMsg);
       out.append(bar, el('pre', null, esc(text)));
     };
     bpm.oninput = build;

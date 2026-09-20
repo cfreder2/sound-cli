@@ -69,8 +69,12 @@ costlier per sample than a short one and counting notes cannot see that.
 
 The **Keyboard** tab plays live: computer keys in the tracker layout (Z–M lower
 octave, Q–U upper), the mouse or touch, or a MIDI device if one is plugged in.
-Arm REC, optionally with a count-in and click, play, and the take comes back as
-a score you can hear, copy or download into `tracks/`.
+Arm REC, play, press stop. The first thing offered is **PLAY BACK** — the notes
+at the times you played them, no grid involved. Turning a take into a score is a
+separate step, because a score is a grid of steps and converting rounds your
+timing to it. Name it and **SAVE TO TRACKS** writes `tracks/<name>.snd` and it
+appears in the Tracks tab; on a static host with no server, DOWNLOAD is the
+fallback.
 
 It runs an AudioWorklet over the same `core/voice.js` the renderer uses, so a
 note played on the keyboard and the same note written into a score are the same
@@ -87,6 +91,23 @@ notice:
   step. Lanes are assigned by which is free rather than by pitch, so a held note
   stays in one lane instead of moving every time a chord changes shape. Past
   four at once, notes are reported as dropped rather than silently overwritten.
+
+## How the pieces fit
+
+Four words, used precisely, because three of them sound like each other:
+
+| | |
+| --- | --- |
+| **layer** | part of one *instrument*. `lead` is a 25% pulse plus a triangle an octave down — two layers, one sound. You do not write these in a score; they live in `core/instruments.js`. |
+| **voice** | one part in a track: a `@voice` block, one note at a time. A melody is a voice, a bass line is a voice. A recorded chord becomes one voice per note. |
+| **section** | a named block of bars — `@section A`. Written once, played wherever `@order` names it. |
+| **track** | one `.snd` file: header, voices, order. This is a song. |
+
+So a song is a file with several voices in it. Recording gives you one take at a
+time; building a song from takes means merging their `@voice` blocks into one
+file, which today is a text edit. Overdub — recording a new part while an
+existing track plays — is the missing piece, and it is the next thing worth
+building.
 
 ## The format
 

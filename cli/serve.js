@@ -7,7 +7,7 @@
 // and a static host is all either of them needs.
 
 import { createServer } from 'node:http';
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, writeFileSync } from 'node:fs';
 import { join, extname, normalize } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
@@ -94,6 +94,36 @@ export function serve({ root, port = 7171, open = true }) {
       res.end(body);
     };
     try {
+      // Writing a take back into tracks/. Only the local server does this --
+      // a static host has no filesystem, and the page falls back to a browser
+      // download there.
+      if (url.pathname === '/api/save' && req.method === 'POST') {
+        let body = '';
+        req.on('data', (d) => { body += d; if (body.length > 2e6) req.destroy(); });
+        req.on('end', () => {
+          try {
+            const { id, text, overwrite } = JSON.parse(body);
+            if (!/^[a-z0-9][a-z0-9-]{0,48}$/.test(id || '')) {
+              return send(400, 'text/plain', 'Name must be lower-case letters, digits and hyphens.');
+            }
+            const dest = join(root, 'tracks', `${id}.snd`);
+            if (!dest.startsWith(join(root, 'tracks'))) return send(403, 'text/plain', 'no');
+            if (existsSync(dest) && !overwrite) {
+              return send(409, 'text/plain', `tracks/${id}.snd already exists.`);
+            }
+            // Parse before writing. A file that does not load is worse than no
+            // file, because it breaks `sound check` for everything else.
+            const { errors } = parseScore(text, `${id}.snd`);
+            if (errors.length) return send(400, 'text/plain', errors.slice(0, 4).join('\n'));
+            writeFileSync(dest, text);
+            return send(200, 'application/json', JSON.stringify({ path: `tracks/${id}.snd` }));
+          } catch (e) {
+            return send(500, 'text/plain', e.message);
+          }
+        });
+        return undefined;
+      }
+
       if (url.pathname === '/data.json') {
         buildManifest(root)
           .then((m) => send(200, TYPES['.json'], JSON.stringify(m)))
