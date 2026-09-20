@@ -8,226 +8,32 @@
 // left to drift against.
 
 import {
-  RATE, pulse, saw, sine, triangle, nesTriangle, noiseBed, quantize, sweepPoints,
-  adsr, nesEnv, Biquad, Echo, hz, panGains, limit, clamp, db,
+  RATE, triangle, nesTriangle, noiseBed, Biquad, Echo, panGains, limit, clamp, db,
 } from './dsp.js';
-import { instrumentFor, ALGOS } from './instruments.js';
+import { instrumentFor } from './instruments.js';
+import { Voice } from './voice.js';
 
 const TAIL = 1.2;                  // seconds of room past the last note
-
-/** tanh(d), memoised: it is called per sample and d changes per layer. */
-const DRV = new Map();
-const drv = (d) => {
-  let v = DRV.get(d);
-  if (v === undefined) { v = Math.tanh(d); DRV.set(d, v); }
-  return v;
-};
-
-function oscSample(kind, phase, dt, duty, noise, noiseIdx) {
-  switch (kind) {
-    case 'pulse': return pulse(phase, dt, duty);
-    case 'saw': return saw(phase, dt);
-    case 'sine': return sine(phase);
-    case 'tri': return triangle(phase);
-    case 'nestri': return nesTriangle(phase);
-    case 'noise': return noise[noiseIdx % noise.length];
-    default: return sine(phase);
-  }
-}
-
-/**
- * Resample a noise bed so its rasp tracks pitch.
- *
- * The 2A03's noise channel in short mode repeats every 93 bits, which the ear
- * hears as a tone whose pitch follows the channel's period -- so noise IS a
- * melodic voice on that hardware. Generating a new shift-register buffer per
- * note would be the faithful way and far too slow; reading the existing bed at
- * a rate proportional to frequency gives the same effect for a multiply.
- */
-const pitchedIndex = (i, f) => Math.floor(i * (f / 220));
-
-/**
- * Four-operator FM. `mod` says who modulates whom; `out` says who is heard.
- *
- * Written to allocate NOTHING per sample. The obvious version builds a
- * four-element array and an envelope object per operator per sample, which at
- * 44.1 kHz is about 25 million allocations for a two-minute track and shows up
- * as GC rather than as synthesis. The scratch array is hoisted, the envelope
- * parameters are read from flat arrays, and operators that contribute nothing
- * are skipped instead of computed and multiplied by zero.
- */
-const TAU = Math.PI * 2;
-function fmVoice(spec) {
-  const algo = ALGOS[spec.algo] || ALGOS.brass;
-  const n = spec.ops.length;
-  const ratio = new Float64Array(n), level = new Float64Array(n), fb = new Float64Array(n);
-  const ea = new Float64Array(n), ed = new Float64Array(n);
-  const es = new Float64Array(n), er = new Float64Array(n);
-  spec.ops.forEach((o, i) => {
-    ratio[i] = o.ratio; level[i] = o.level; fb[i] = o.fb || 0;
-    ea[i] = o.a; ed[i] = o.d; es[i] = o.s; er[i] = o.r;
-  });
-
-  // An operator matters only if it is heard, or modulates something that is.
-  const needed = new Set(algo.out);
-  for (let pass = 0; pass < n; pass++) {
-    for (let i = 0; i < n; i++) if (needed.has(i)) for (const m of algo.mod[i]) needed.add(m);
-  }
-  const order = [];
-  for (let i = n - 1; i >= 0; i--) if (needed.has(i) && level[i] > 0) order.push(i);
-  const mods = algo.mod.map((a) => a.filter((m) => needed.has(m) && level[m] > 0));
-  const outs = algo.out.filter((c) => level[c] > 0);
-  const outScale = 1.6 / Math.max(1, outs.length);
-
-  const phase = new Float64Array(n);
-  const last = new Float64Array(n);
-  const val = new Float64Array(n);
-
-  return (f, age, dur) => {
-    for (let k = 0; k < order.length; k++) {
-      const i = order[k];
-      let mod = 0;
-      const ms = mods[i];
-      for (let j = 0; j < ms.length; j++) mod += val[ms[j]];
-      if (fb[i]) mod += last[i] * fb[i];
-      let ph = phase[i] + (f * ratio[i]) / RATE;
-      ph -= Math.floor(ph);
-      phase[i] = ph;
-      const e = adsr(age, dur, { a: ea[i], d: ed[i], s: es[i], r: er[i] });
-      const v = Math.sin((ph + mod) * TAU) * level[i] * e;
-      last[i] = v;
-      val[i] = v * 2.6;            // modulation index: how bright the FM gets
-    }
-    let sum = 0;
-    for (let k = 0; k < outs.length; k++) sum += val[outs[k]];
-    return (sum / 2.6) * outScale;
-  };
-}
 
 /**
  * One note, summed into the mix.
  *
- * Every layer of the instrument is rendered here and added -- that is all
- * layering is, and keeping it in one visible loop is why `instruments.js` can
- * be data. A layer with `delay` starts late, which is how a slapback is one
- * layer rather than a second effects stage.
+ * A thin adapter now. The synthesis moved to core/voice.js so that the same
+ * code can also be driven a block at a time by an AudioWorklet -- playing a
+ * keyboard needs sound within milliseconds, and building a second synth out of
+ * Web Audio nodes to get it is the arrangement this package exists to delete.
  */
 function renderNote(mix, opts) {
-  const {
-    at, dur, note, inst, gain, pan, vib, sweep, accent, send, tone,
-  } = opts;
-  const baseMidi = note;
-  const env = inst.env === 'nes' ? null : (inst.env || { a: 0.005, d: 0.06, s: 0.7, r: 0.1 });
-  const relTail = env ? env.r : 0;
-  const total = dur + relTail;
-  const [gl, gr] = panGains(pan);
-  // `trim` makes `mix=` mean one thing across every instrument. See
-  // instruments.js. It is applied AFTER the waveshaper, not before: a
-  // non-linearity's character depends on how hard it is hit, so folding level
-  // into the drive input means turning a distorted guitar down also makes it
-  // cleaner -- and the loudness calibration can then never converge, because
-  // every trim it computes changes the sound it was measuring.
-  const amp = gain * (accent ? 1.35 : 1);
-  const post = inst.trim ?? 1;
-  // The sweep, flattened once. Rescanning the table on every sample -- and
-  // calling quantize() inside that scan -- was ten redundant comparisons and a
-  // division per sample on any note carrying a slide.
-  const sweepRaw = sweep ? sweepPoints(hz(baseMidi), { up: sweep > 0 }) : null;
-  const fm = inst.fm ? fmVoice(inst.fm) : null;
-
-  for (const layer of (inst.layers || [{ osc: 'sine', gain: 1 }])) {
-    const lag = layer.delay || 0;
-    const start = Math.floor((at + lag) * RATE);
-    const n = Math.floor((layer.hold ?? total) * RATE);
-    if (start >= mix.L.length) continue;
-
-    const lm = baseMidi + (layer.semi || 0);
-    let f0 = hz(lm) * 2 ** ((layer.detune || 0) / 1200);
-    if (inst.quantize) f0 = quantize(f0);
-    const lg = amp * (layer.gain ?? 1);   // into the shaper
-    // The instrument's own voicing filter, then the voice's tone. Both are
-    // per-note here rather than on a shared bus, which costs a few biquads and
-    // buys not having to restructure the mixer for a feature most voices do
-    // not use.
-    const chain = [];
-    if (inst.cut) chain.push(new Biquad('lowpass', inst.cut, 0.8));
-    // A fixed resonance. Wind instruments and voices are mostly defined by
-    // where their formants sit, and a peak is the cheapest way to put one
-    // there -- a clarinet and an oboe are the same reed at different peaks.
-    if (inst.eq) chain.push(new Biquad('peaking', inst.eq.f, inst.eq.q ?? 1.2, inst.eq.gain ?? 6));
-    if (tone?.lp) chain.push(new Biquad('lowpass', tone.lp, 0.707));
-    if (tone?.hp) chain.push(new Biquad('highpass', tone.hp, 0.707));
-    if (tone?.tilt) chain.push(new Biquad('highshelf', 1500, 0.707, tone.tilt));
-    const noise = layer.osc === 'noise' ? noiseBed(layer.bed || 'long') : null;
-    let phase = 0;
-
-    // Per-layer, precomputed once.
-    const sweepT = sweepRaw ? sweepRaw.map((p) => p.t) : null;
-    const sweepF = sweepRaw
-      ? sweepRaw.map((p) => (inst.quantize ? quantize(p.f) : p.f)) : null;
-    let sweepAt = 0;
-    const isFm = layer.osc === 'fm' && !!fm;
-    const duty = layer.duty ?? 0.5;
-    const nesEnvelope = !env;
-
-    for (let i = 0; i < n; i++) {
-      const j = start + i;
-      if (j >= mix.L.length) break;
-      const age = i / RATE;
-
-      let f = f0;
-      if (sweepT) {
-        while (sweepAt < sweepT.length && age >= sweepT[sweepAt]) sweepAt += 1;
-        if (sweepAt > 0) f = sweepF[sweepAt - 1];
-      }
-      // Vibrato arrives late on purpose: a note that wavers from the instant
-      // it starts sounds seasick, and one that never wavers is a test tone.
-      // The pow stays. Linearising it is a 0.05 cent error -- inaudible on its
-      // own, two thousand times below the just-noticeable difference -- but
-      // frequency error integrates into PHASE error, and over a three-second
-      // held note that reached 17 degrees, which is a 10 dB sample-wise
-      // divergence from the same note rendered the other way. Renders have to
-      // be reproducible to be worth diffing, so the exact form stays.
-      if (vib && age > 0.14) {
-        f *= 2 ** ((Math.sin((age - 0.14) * TAU * 5.5) * 14) / 1200);
-      }
-
-      const e = nesEnvelope ? nesEnv(age, dur) : adsr(age, dur, env);
-      if (e <= 0 && age > dur) break;
-
-      let s;
-      if (isFm) {
-        s = fm(f, age, dur);
-      } else {
-        const dt = f / RATE;
-        phase += dt;
-        if (phase >= 1) phase -= Math.floor(phase);
-        s = oscSample(layer.osc, phase, dt, duty, noise,
-          layer.pitched ? pitchedIndex(i, f) : i);
-      }
-      s *= e * lg;
-      // Soft clipping, per layer.
-      //
-      // Distortion is not a filter -- it ADDS harmonics that were not there,
-      // which is why no amount of EQ turns a clean guitar into a dirty one. A
-      // tanh curve is the standard cheap approximation of a valve, and it is
-      // divided by tanh(drive) so driving a layer harder makes it dirtier
-      // rather than merely louder.
-      if (layer.drive) s = Math.tanh(s * layer.drive) / drv(layer.drive);
-      s *= post;
-      // Quantise to `crush` bits. The DMC channel was seven bits and
-      // everything sampled went through it; the crunch is the character.
-      if (layer.crush) {
-        const q = (1 << layer.crush) - 1;
-        s = Math.round(clamp(s, -1, 1) * q) / q;
-      }
-      for (let k = 0; k < chain.length; k++) s = chain[k].run(s);
-
-      mix.L[j] += s * gl;
-      mix.R[j] += s * gr;
-      if (send > 0) mix.S[j] += s * send;
-    }
-  }
+  const { at, dur, note, inst } = opts;
+  const v = new Voice(inst, note, { ...opts, dur });
+  const start = Math.floor(at * RATE);
+  if (start >= mix.L.length) return;
+  // Enough samples for the longest layer: the note's own span, plus whatever
+  // a delayed layer (a slapback) needs after it.
+  let lag = 0;
+  for (const l of inst.layers || []) lag = Math.max(lag, l.delay || 0);
+  const span = Math.floor((dur + v.tail) * RATE) + Math.round(lag * RATE) + 1;
+  v.fill(mix.L, mix.R, mix.S, start, Math.min(span, mix.L.length - start));
 }
 
 /**
