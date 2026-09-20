@@ -11,6 +11,7 @@ import { encodeWav } from '../core/wav.js';
 import { quantize, quantizeError, lfsr, Biquad, panGains } from '../core/dsp.js';
 import { instrumentFor, INSTRUMENTS } from '../core/instruments.js';
 import { quantise, toScore } from '../core/record.js';
+import * as E from '../core/edit.js';
 import { Voice } from '../core/voice.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -359,4 +360,115 @@ test('Voice reports when it is finished', () => {
   const alive = v.fill(L, R, null, 0, 44100);
   assert.equal(alive, false);
   assert.equal(v.done, true);
+});
+
+
+// --- editing -----------------------------------------------------------------
+
+const model = (src) => E.toModel(loadScore(src, 'x'));
+const TWO = `@track x
+  name X
+  bpm 120
+  beats 8
+  era 8bit
+
+@voice lead inst=lead mix=0.2
+  c4  .   e4  -   g4  .   .   -
+  a4  -   -   -   c5  .   .   -
+`;
+
+test('every shipped track survives model -> text -> model unchanged', () => {
+  for (const f of tracks) {
+    const t = loadScore(readFileSync(join(ROOT, 'tracks', f), 'utf8'), f);
+    const a = E.toModel(t);
+    const b = E.toModel(loadScore(E.toText(a), f));
+    assert.deepEqual(b.voices.map((v) => v.notes), a.voices.map((v) => v.notes), f);
+    assert.equal(b.bars, a.bars, f);
+  }
+});
+
+test('a chord voice keeps its chord NAMES, not just its pitches', () => {
+  // [57,60,64] could be written several ways; the file should say what the
+  // author typed, which means the parser has to keep it.
+  const m = model('@track x\n bpm 120\n beats 4\n era 8bit\n@voice a inst=arp mix=0.1\n  am  .   f   .\n');
+  assert.deepEqual(m.voices[0].notes.map((n) => n.chord), ['am', 'f']);
+  assert.match(E.toText(m), /am/);
+  assert.match(E.toText(m), /\bf\b/);
+});
+
+test('deleting a note removes it wherever inside it you click', () => {
+  const m = model(TWO);
+  assert.equal(m.voices[0].notes.length, 5);
+  E.delNote(m, 'lead', 5);          // the middle of g4, which runs 4..6
+  assert.equal(m.voices[0].notes.length, 4);
+  assert.ok(!m.voices[0].notes.some((n) => n.midi === 67));
+});
+
+test('placing a note clears whatever it lands on', () => {
+  const m = model(TWO);
+  E.setNote(m, 'lead', 0, 72, 4);   // covers c4 and e4
+  const ns = m.voices[0].notes;
+  assert.equal(ns[0].midi, 72);
+  assert.ok(!ns.some((n) => n.midi === 60 || n.midi === 64));
+});
+
+test('changing a length trims what it now overlaps', () => {
+  const m = model(TWO);
+  E.setLen(m, 'lead', 0, 3);        // c4 grows over e4 at step 2
+  assert.equal(m.voices[0].notes.find((n) => n.step === 0).len, 3);
+  assert.ok(!m.voices[0].notes.some((n) => n.step === 2));
+});
+
+test('clearing a range leaves notes outside it alone', () => {
+  const m = model(TWO);
+  E.clearRange(m, 'lead', 2, 8);
+  assert.deepEqual(m.voices[0].notes.map((n) => n.step), [0, 8, 12]);
+});
+
+test('shifting a range moves only that range', () => {
+  const m = model(TWO);
+  E.shiftRange(m, 'lead', 8, 16, 2);
+  assert.deepEqual(m.voices[0].notes.map((n) => n.step), [0, 2, 4, 10, 14]);
+});
+
+test('shifting cannot push notes before the start', () => {
+  const m = model(TWO);
+  E.shiftRange(m, 'lead', 0, 16, -4);
+  assert.ok(m.voices[0].notes.every((n) => n.step >= 0));
+});
+
+test('inserting bars in the middle pushes later notes later', () => {
+  const m = model(TWO);
+  E.insertBars(m, 1, 2);
+  assert.equal(m.bars, 4);
+  // bar one is untouched, bar two has moved two bars later
+  assert.deepEqual(m.voices[0].notes.map((n) => n.step), [0, 2, 4, 24, 28]);
+});
+
+test('deleting a bar pulls later notes earlier and drops what was in it', () => {
+  const m = model(TWO);
+  E.deleteBars(m, 0, 1);
+  assert.equal(m.bars, 1);
+  assert.deepEqual(m.voices[0].notes.map((n) => n.step), [0, 4]);
+  assert.equal(m.voices[0].notes[0].midi, 69);
+});
+
+test('adding a voice never collides with an existing name', () => {
+  const m = model(TWO);
+  E.addVoice(m, { id: 'lead' });
+  assert.equal(m.voices.length, 2);
+  assert.notEqual(m.voices[1].id, m.voices[0].id);
+});
+
+test('an edited model still parses, and still renders', () => {
+  const m = model(TWO);
+  E.insertBars(m, 1, 1);
+  E.setNote(m, 'lead', 8, 71, 4);
+  E.addVoice(m, { id: 'bass', inst: 'bass', mix: 0.17 });
+  E.setNote(m, 'bass', 0, 45, 8);
+  const t = loadScore(E.toText(m), 'edited.snd');
+  assert.equal(t.totalBars, 3);
+  assert.equal(t.voices.length, 2);
+  const out = renderTrack(t, { era: '8bit', bars: 3 });
+  assert.ok(out.stats.peakDb > -40 && out.stats.peakDb <= 0.01);
 });

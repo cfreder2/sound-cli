@@ -86,7 +86,11 @@ function parseBar(line, beats, kind, where) {
     if (kind === 'chord') {
       const spec = CHORDS[raw] || (/^[a-g]/.test(raw) && raw.includes(' ') ? raw : null);
       if (!spec) { errs.push(`${where} step ${i + 1}: unknown chord '${raw}'`); continue; }
-      last = { chord: spec.split(/\s+/).map(midi), steps: 1 };
+      // Keep the name as well as the pitches. The renderer only wants the
+      // pitches, but an editor has to be able to write the bar back out, and
+      // `am` cannot be recovered from [57, 60, 64] -- several chords share a
+      // spelling and the file should say what the author typed.
+      last = { chord: spec.split(/\s+/).map(midi), name: raw, steps: 1 };
       row[i] = last;
       continue;
     }
