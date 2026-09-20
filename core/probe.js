@@ -20,11 +20,15 @@ export const ROLE = {
 
   pluck: 'pluck', harp: 'pluck', guitar: 'pluck', marimba: 'pluck',
   glock: 'pluck', vibes: 'pluck', epiano: 'pluck', piano: 'pluck',
-  'fm-bell': 'pluck',
+  'fm-bell': 'pluck', wurli: 'pluck', clav: 'pluck', harpsichord: 'pluck',
+  banjo: 'pluck', 'guitar-nylon': 'pluck', 'guitar-clean': 'pluck',
+  'guitar-dist': 'pluck',
+
+  'bass-pick': 'bass',
 
   strings: 'sustain', pad: 'sustain', choir: 'sustain', organ: 'sustain',
   brass: 'sustain', horn: 'sustain', flute: 'sustain', clarinet: 'sustain',
-  oboe: 'sustain',
+  oboe: 'sustain', accordion: 'sustain',
 
   kit: 'kit', kit16: 'kit',
 };

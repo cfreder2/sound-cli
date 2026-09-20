@@ -36,16 +36,16 @@ const measure = (name, def) => {
 
 const check = process.argv.includes('--check');
 const drift = [];
-console.log('instrument    era     measured   current   wanted');
+console.log('instrument        era     measured   current   wanted');
 for (const [name, def] of Object.entries(INSTRUMENTS)) {
   // A kit's level cannot be read from a sustained note, so the two kits are
   // matched to each other by hand instead. Left out of the sweep on purpose.
-  if (def.drums) { console.log(`  ${name.padEnd(12)}${def.era.padEnd(8)}     (kit, set by hand)`); continue; }
+  if (def.drums) { console.log(`  ${name.padEnd(16)}${def.era.padEnd(8)}     (kit, set by hand)`); continue; }
   const l = measure(name, def);
   const want = +(10 ** ((TARGET - l) / 20) * (def.trim ?? 1)).toFixed(3);
   const off = 20 * Math.log10(want / (def.trim ?? 1));
   if (Math.abs(off) > TOLERANCE) drift.push(`${name}: trim ${def.trim} should be ${want} (${off.toFixed(1)} dB off)`);
-  console.log(`  ${name.padEnd(12)}${def.era.padEnd(8)}${l.toFixed(1).padStart(7)} dB`
+  console.log(`  ${name.padEnd(16)}${def.era.padEnd(8)}${l.toFixed(1).padStart(7)} dB`
     + `${String(def.trim ?? '-').padStart(10)}${String(want).padStart(10)}`
     + `${Math.abs(off) > TOLERANCE ? '   DRIFTED' : ''}`);
 }

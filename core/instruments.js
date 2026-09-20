@@ -213,7 +213,7 @@ export const INSTRUMENTS = {
     layers: [{ osc: 'noise', bed: 'metal', gain: 1, pitched: true }],
   },
   dpcm: {
-    era: '8bit', trim: 0.462, quantize: true, env: 'nes', cut: 2400,
+    era: '8bit', trim: 0.463, quantize: true, env: 'nes', cut: 2400,
     desc: 'A crushed sampled voice: five-bit quantisation, like the DMC channel.',
     layers: [
       { osc: 'nestri', gain: 0.8, crush: 5 },
@@ -376,6 +376,110 @@ export const INSTRUMENTS = {
     ],
   },
 
+  // --- 16-bit: keys ---------------------------------------------------------
+
+  wurli: {
+    era: '16bit', trim: 0.402, env: { a: 0.002, d: 0.55, s: 0.18, r: 0.25 },
+    cut: 5000, eq: { f: 1900, q: 1.3, gain: 6 },
+    desc: 'Reedy electric piano. More modulation than epiano, so it barks rather than bells.',
+    fm: {
+      algo: 'bass',
+      ops: [op(1, 1, 0.002, 0.45, 0.20, 0.22), op(1, 0.85, 0.002, 0.10, 0.05, 0.08, 0.28),
+        op(1, 0, 0, 0, 0, 0), op(1, 0, 0, 0, 0, 0)],
+    },
+    layers: [{ osc: 'fm', gain: 1 }],
+  },
+  clav: {
+    era: '16bit', trim: 1.138, env: { a: 0.001, d: 0.22, s: 0.06, r: 0.10 },
+    cut: 4800, eq: { f: 2400, q: 2.0, gain: 8 },
+    desc: 'Clavinet: a narrow pulse, a resonant peak at 2.4 kHz, and a very fast decay.',
+    layers: [
+      { osc: 'pulse', duty: 0.22, gain: 0.7 },
+      { osc: 'saw', gain: 0.25 },
+      { osc: 'noise', bed: 'white', gain: 0.06, hold: 0.007 },
+    ],
+  },
+  harpsichord: {
+    era: '16bit', trim: 1.108, env: { a: 0.001, d: 0.40, s: 0.0, r: 0.16 }, cut: 7000,
+    desc: 'Plucked and bright, with two courses 8 cents apart. No dynamics -- a plucked key.',
+    layers: [
+      { osc: 'saw', detune: -8, gain: 0.45 },
+      { osc: 'saw', detune: 8, gain: 0.45 },
+      { osc: 'pulse', duty: 0.15, semi: 12, gain: 0.16 },
+      { osc: 'noise', bed: 'white', gain: 0.055, hold: 0.006 },
+    ],
+  },
+  accordion: {
+    era: '16bit', trim: 0.23, env: { a: 0.045, d: 0.10, s: 0.92, r: 0.10 },
+    cut: 4200, eq: { f: 1100, q: 1.2, gain: 5 },
+    desc: 'Free reeds: two pulses 12 cents apart plus an octave. Beats like a real bellows.',
+    layers: [
+      { osc: 'pulse', duty: 0.3, detune: -12, gain: 0.45 },
+      { osc: 'pulse', duty: 0.3, detune: 12, gain: 0.45 },
+      { osc: 'pulse', duty: 0.2, semi: 12, gain: 0.18 },
+      { osc: 'sine', semi: -12, gain: 0.10 },
+    ],
+  },
+
+  // --- 16-bit: guitars ------------------------------------------------------
+
+  'guitar-nylon': {
+    era: '16bit', trim: 0.565, env: { a: 0.004, d: 0.70, s: 0.10, r: 0.30 },
+    cut: 2600, eq: { f: 500, q: 0.9, gain: 5 },
+    desc: 'Classical guitar: triangle-led, body resonance at 500 Hz, soft finger transient.',
+    layers: [
+      { osc: 'tri', gain: 0.7 },
+      { osc: 'saw', gain: 0.22 },
+      { osc: 'sine', semi: 12, gain: 0.12 },
+      { osc: 'noise', bed: 'white', gain: 0.030, hold: 0.012 },
+    ],
+  },
+  'guitar-clean': {
+    era: '16bit', trim: 1.028, env: { a: 0.002, d: 0.95, s: 0.28, r: 0.35 },
+    cut: 5200, eq: { f: 2100, q: 1.4, gain: 5 },
+    desc: 'Clean electric: brighter than the acoustic, longer sustain, and no body -- a pickup has none.',
+    layers: [
+      { osc: 'saw', gain: 0.55 },
+      { osc: 'pulse', duty: 0.35, gain: 0.28 },
+      { osc: 'sine', semi: 12, gain: 0.10 },
+      { osc: 'noise', bed: 'white', gain: 0.05, hold: 0.007 },
+    ],
+  },
+  'guitar-dist': {
+    era: '16bit', trim: 0.085, env: { a: 0.002, d: 1.30, s: 0.72, r: 0.30 },
+    cut: 3400, eq: { f: 2000, q: 1.6, gain: 7 },
+    desc: 'Driven electric. Two detuned saws clipped together: the grind is their intermodulation, '
+      + 'and the long sustain is the compression a shaper gives for free.',
+    layers: [
+      { osc: 'saw', detune: -9, gain: 0.5, drive: 14 },
+      { osc: 'saw', detune: 9, gain: 0.5, drive: 14 },
+      { osc: 'pulse', duty: 0.42, semi: 12, gain: 0.16, drive: 9 },
+      { osc: 'sine', semi: -12, gain: 0.12 },
+    ],
+  },
+  'bass-pick': {
+    era: '16bit', trim: 0.314, env: { a: 0.002, d: 0.45, s: 0.35, r: 0.18 },
+    cut: 2800, eq: { f: 1200, q: 1.3, gain: 5 },
+    desc: 'Picked electric bass: saw and pulse over a sine sub, with a hard pick transient.',
+    layers: [
+      { osc: 'saw', gain: 0.5, drive: 4 },
+      { osc: 'pulse', duty: 0.28, gain: 0.22 },
+      { osc: 'sine', semi: -12, gain: 0.28 },
+      { osc: 'noise', bed: 'white', gain: 0.075, hold: 0.010 },
+    ],
+  },
+  banjo: {
+    era: '16bit', trim: 1.268, env: { a: 0.001, d: 0.30, s: 0.0, r: 0.12 },
+    cut: 7500, eq: { f: 3000, q: 1.8, gain: 7 },
+    desc: 'Very bright and very short: a narrow pulse, a peak at 3 kHz, and almost no sustain.',
+    layers: [
+      { osc: 'pulse', duty: 0.14, gain: 0.6 },
+      { osc: 'saw', gain: 0.3 },
+      { osc: 'sine', semi: 19, gain: 0.12 },
+      { osc: 'noise', bed: 'white', gain: 0.07, hold: 0.006 },
+    ],
+  },
+
   'kit16': { era: '16bit', trim: 0.285, drums: '16bit', desc: 'Layered kit: body, snap and air.' },
 };
 
@@ -388,6 +492,9 @@ export const SUBSTITUTE = {
     oboe: 'pulse12', choir: 'pulse50', harp: 'pulse12', guitar: 'pulse25',
     epiano: 'pulse25', marimba: 'tri', vibes: 'tri', glock: 'pulse12',
     timpani: 'bass', slap: 'bass',
+    wurli: 'pulse25', clav: 'pulse12', harpsichord: 'pulse12', accordion: 'pulse50',
+    'guitar-nylon': 'tri', 'guitar-clean': 'pulse25', 'guitar-dist': 'pulse25',
+    'bass-pick': 'bass', banjo: 'pulse12',
   },
   '16bit': {
     pulse12: 'fm-lead', pulse25: 'fm-lead', pulse50: 'organ', lead: 'fm-lead',

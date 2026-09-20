@@ -149,7 +149,7 @@ them *behind* the near ones rather than merely under them.
 
 ## Instruments
 
-34: eleven 8-bit, twenty-three 16-bit.
+43: eleven 8-bit, thirty-two 16-bit.
 
 ```sh
 sound instruments          # the list
@@ -170,10 +170,28 @@ a triangle and noise, and all three duty cycles are here, plus `noise-lead`
 (short-mode noise resampled to track pitch, which is a real melodic voice on
 that chip) and `dpcm` (five-bit quantisation, like the DMC channel).
 
-16-bit covers brass (`brass`, `horn`), winds (`flute`, `clarinet`, `oboe`),
-voice (`choir`), plucked (`harp`, `guitar`, `pluck`, `epiano`), tuned
-percussion (`marimba`, `vibes`, `glock`, `timpani`, `fm-bell`), keys (`piano`,
-`organ`), strings, pads and three basses.
+16-bit covers brass (`brass`, `horn`), winds (`flute`, `clarinet`, `oboe`,
+`accordion`), voice (`choir`), keys (`piano`, `epiano`, `wurli`, `clav`,
+`harpsichord`, `organ`), guitars (`guitar`, `guitar-nylon`, `guitar-clean`,
+`guitar-dist`, `banjo`, `harp`, `pluck`), tuned percussion (`marimba`, `vibes`,
+`glock`, `timpani`, `fm-bell`), strings, pads and four basses.
+
+Measured on a sustained A3, the keys separate by decay and the guitars by
+brightness — `harpsichord` has no sustain mechanism at all, `accordion` is a
+wind instrument and holds:
+
+| | fundamental | 2nd+3rd | 1–4 kHz | level at 0.5 s |
+| --- | --- | --- | --- | --- |
+| `piano` | 93% | 4% | 3% | −6.4 dB |
+| `epiano` | 66% | 21% | 12% | −13.1 dB |
+| `wurli` | 54% | 26% | 20% | −28.4 dB |
+| `harpsichord` | 74% | 14% | 10% | **−34.2 dB** |
+| `accordion` | 64% | 21% | 14% | **−6.3 dB** |
+| `guitar-nylon` | **96%** | 3% | 1% | −9.6 dB |
+| `guitar` | 81% | 8% | 11% | −14.0 dB |
+| `guitar-clean` | 48% | 21% | **29%** | −4.4 dB |
+| `guitar-dist` | 62% | 18% | 21% | **−4.1 dB** |
+| `banjo` | 43% | **34%** | 21% | **−38.8 dB** |
 
 Measured harmonic content on a sustained A3 — `clarinet` is a 50% pulse, and a
 50% pulse has no even harmonics, which is why its second is 0%:

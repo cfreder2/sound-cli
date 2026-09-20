@@ -15,6 +15,14 @@ import { instrumentFor, ALGOS } from './instruments.js';
 
 const TAIL = 1.2;                  // seconds of room past the last note
 
+/** tanh(d), memoised: it is called per sample and d changes per layer. */
+const DRV = new Map();
+const drv = (d) => {
+  let v = DRV.get(d);
+  if (v === undefined) { v = Math.tanh(d); DRV.set(d, v); }
+  return v;
+};
+
 function oscSample(kind, phase, dt, duty, noise, noiseIdx) {
   switch (kind) {
     case 'pulse': return pulse(phase, dt, duty);
@@ -113,8 +121,14 @@ function renderNote(mix, opts) {
   const relTail = env ? env.r : 0;
   const total = dur + relTail;
   const [gl, gr] = panGains(pan);
-  // `trim` makes `mix=` mean one thing across every instrument. See instruments.js.
-  const amp = gain * (inst.trim ?? 1) * (accent ? 1.35 : 1);
+  // `trim` makes `mix=` mean one thing across every instrument. See
+  // instruments.js. It is applied AFTER the waveshaper, not before: a
+  // non-linearity's character depends on how hard it is hit, so folding level
+  // into the drive input means turning a distorted guitar down also makes it
+  // cleaner -- and the loudness calibration can then never converge, because
+  // every trim it computes changes the sound it was measuring.
+  const amp = gain * (accent ? 1.35 : 1);
+  const post = inst.trim ?? 1;
   // The sweep, flattened once. Rescanning the table on every sample -- and
   // calling quantize() inside that scan -- was ten redundant comparisons and a
   // division per sample on any note carrying a slide.
@@ -130,7 +144,7 @@ function renderNote(mix, opts) {
     const lm = baseMidi + (layer.semi || 0);
     let f0 = hz(lm) * 2 ** ((layer.detune || 0) / 1200);
     if (inst.quantize) f0 = quantize(f0);
-    const lg = amp * (layer.gain ?? 1);
+    const lg = amp * (layer.gain ?? 1);   // into the shaper
     // The instrument's own voicing filter, then the voice's tone. Both are
     // per-note here rather than on a shared bus, which costs a few biquads and
     // buys not having to restructure the mixer for a feature most voices do
@@ -192,6 +206,15 @@ function renderNote(mix, opts) {
           layer.pitched ? pitchedIndex(i, f) : i);
       }
       s *= e * lg;
+      // Soft clipping, per layer.
+      //
+      // Distortion is not a filter -- it ADDS harmonics that were not there,
+      // which is why no amount of EQ turns a clean guitar into a dirty one. A
+      // tanh curve is the standard cheap approximation of a valve, and it is
+      // divided by tanh(drive) so driving a layer harder makes it dirtier
+      // rather than merely louder.
+      if (layer.drive) s = Math.tanh(s * layer.drive) / drv(layer.drive);
+      s *= post;
       // Quantise to `crush` bits. The DMC channel was seven bits and
       // everything sampled went through it; the crunch is the character.
       if (layer.crush) {
