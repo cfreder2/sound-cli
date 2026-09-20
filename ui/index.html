@@ -67,6 +67,8 @@
   .list button.on{background:var(--panel2);box-shadow:inset 3px 0 var(--a)}
   .list .t{font:600 13px/1.3 var(--mono);letter-spacing:.04em}
   .list .s{color:var(--dim);font:11px/1.5 var(--mono);margin-top:3px}
+  .list .grp{padding:9px 13px 5px;color:var(--dimmer);font:9px/1 var(--mono);
+    letter-spacing:.16em;border-bottom:1px solid var(--line);background:#101519}
 
   .card{border:1px solid var(--line);border-radius:9px;background:var(--panel);padding:16px}
   .card h2{margin:0 0 3px;font:600 17px/1.2 var(--mono);letter-spacing:.04em}
@@ -1119,6 +1121,7 @@ const BLACK_OFF = { 1: 0.68, 3: 1.68, 6: 3.68, 8: 4.68, 10: 5.68 };
 let kbOctave = 4;
 let takeBpm = 104;
 let takeGrid = 1;
+let takeInst = null;   // null = whatever was played; set once you change it
 let kbInst = 'lead';
 let midiAccess = null;
 let midiInput = null;
@@ -1179,6 +1182,12 @@ const HELP = {
     + '1/4 moves every note to the nearest beat. Coarser is more forgiving and loses more feel.'],
   countin: ['COUNT-IN', 'Bars of clicks before recording starts, so you can find the tempo '
     + 'before the first note rather than during it.'],
+  takeinst: ['SOUND (of the take)', 'Which instrument the saved score uses. A recording holds '
+    + 'only notes and timing, so this is a decision you make afterwards and can change as often '
+    + 'as you like -- including to an instrument from the other era.'],
+  mix: ['MIX', 'How loud this part sits against the rest of a track. 0.2 is a normal lead; a '
+    + 'pad sits nearer 0.05. Every instrument is loudness-calibrated, so the same number means '
+    + 'the same loudness whatever is playing it.'],
   click: ['CLICK', 'The metronome. One tick per beat while recording, accented on beat one. '
     + 'It is never recorded -- it only exists so you have something to play against.'],
 };
@@ -1328,11 +1337,12 @@ function keysView() {
     const node = await ensureLive();
     const c2 = audio();
     const at0 = c2.currentTime + 0.12;
-    const e0 = era();
+    const useInst = takeInst || kbInst;
+    const e0 = manifest.instruments.find((i) => i.name === useInst)?.era || '8bit';
     let vid = 900000;
     for (const ev of rec.events) {
       const idv = vid += 1;
-      node.port.postMessage({ type: 'on', id: idv, note: ev.note, inst: kbInst, era: e0, gain: 0.25, at: at0 + ev.start });
+      node.port.postMessage({ type: 'on', id: idv, note: ev.note, inst: useInst, era: e0, gain: 0.25, at: at0 + ev.start });
       node.port.postMessage({ type: 'off', id: idv, at: at0 + ev.end });
     }
     takePlaying = true;
@@ -1343,6 +1353,7 @@ function keysView() {
   const showTake = () => {
     outBox.innerHTML = '';
     if (!rec.events.length) { stat.textContent = 'Nothing recorded.'; return; }
+    takeInst ||= kbInst;
     const len = Math.max(...rec.events.map((x) => x.end));
     stat.innerHTML = `<b>${rec.events.length} notes</b> \u00b7 ${len.toFixed(1)}s`;
 
@@ -1364,6 +1375,16 @@ function keysView() {
     outBox.append(det);
 
     const opts = el('div', 'rec');
+    const instSel2 = el('select');
+    for (const i of manifest.instruments) {
+      const o = el('option', null, `${i.name}  (${i.era})`);
+      o.value = i.name;
+      if (i.name === takeInst) o.selected = true;
+      instSel2.append(o);
+    }
+    const mixIn = el('input');
+    mixIn.type = 'number'; mixIn.step = '0.01'; mixIn.min = '0'; mixIn.max = '1';
+    mixIn.value = '0.2'; mixIn.style.width = '62px';
     const bpm = el('input'); bpm.type = 'number'; bpm.min = '40'; bpm.max = '220';
     bpm.value = String(takeBpm);
     const fit = el('button', 'btn tiny', 'FIT');
@@ -1375,7 +1396,9 @@ function keysView() {
       grid.append(o);
     }
     const note = el('div', 'kstat', '');
-    opts.append(el('span', 'meta', 'BPM'), info(...HELP.bpm), bpm, fit,
+    opts.append(el('span', 'meta', 'SOUND'), info(...HELP.takeinst), instSel2,
+      el('span', 'meta', 'MIX'), info(...HELP.mix), mixIn,
+      el('span', 'meta', 'BPM'), info(...HELP.bpm), bpm, fit,
       el('span', 'meta', 'SNAP'), info(...HELP.snap), grid);
     box.append(opts, note);
     const out = el('div');
@@ -1387,10 +1410,11 @@ function keysView() {
     const saveMsg = el('span', 'meta', '');
 
     const build = () => {
-      takeBpm = +bpm.value; takeGrid = +grid.value;
+      takeBpm = +bpm.value; takeGrid = +grid.value; takeInst = instSel2.value;
+      const tEra = manifest.instruments.find((i) => i.name === takeInst)?.era || '8bit';
       const q = quantise(rec.events, { bpm: takeBpm, beats: 16, grid: takeGrid });
       const text = toScore(q, {
-        id: 'take', era: era(), inst: kbInst, mix: 0.2,
+        id: 'take', era: tEra, inst: takeInst, mix: +mixIn.value || 0.2,
         note: `Recorded ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
       });
       // Say what happened and what to do about it. "Current BPM is not one of
@@ -1413,9 +1437,10 @@ function keysView() {
       const hear = el('button', 'btn tiny', '\u25b6 HEAR THE SCORE');
       hear.onclick = async () => {
         try {
-          const bufs = await buffers('track', `take-${takeBpm}-${takeGrid}-${rec.events.length}`, {}, null, text);
+          const bufs = await buffers('track',
+            `take-${takeInst}-${takeBpm}-${takeGrid}-${mixIn.value}-${rec.events.length}`, {}, null, text);
           const n2 = audio().createBufferSource();
-          n2.buffer = bufs[ERAS.indexOf(era())];
+          n2.buffer = bufs[ERAS.indexOf(tEra)];
           n2.connect(master); n2.start();
         } catch (e) { fail('playing the score', e); }
       };
@@ -1471,6 +1496,8 @@ function keysView() {
     };
     bpm.oninput = build;
     grid.onchange = build;
+    instSel2.onchange = build;
+    mixIn.oninput = build;
     let fitAt = 0;
     fit.onclick = () => {
       const cands = fitCandidates(rec.events);
@@ -1592,13 +1619,23 @@ function render() {
     const list = el('div', 'list');
     const shown = manifest.tracks.filter((x) => hit(x, x.id, x.name, x.tags.join(' ')));
     setCount(shown.length, manifest.tracks.length);
-    for (const t of shown) {
-      const b = el('button', pick.tracks === t.id ? 'on' : '');
-      b.append(el('div', 't', esc(t.name)));
-      b.append(el('div', 's', `${t.seconds}s · ${t.bars} bars · ${t.voices.length}v · ${esc(t.tags[0] || '')}`));
-      b.onclick = () => { pick.tracks = t.id; stop(); mutes.clear(); solos.clear(); era = t.era; render(); };
-      list.append(b);
-    }
+    // Your tracks first and under their own heading. Anything you record or
+    // write does not belong filed among the examples that came with the tool.
+    const mine = shown.filter((t) => !t.shipped);
+    const theirs = shown.filter((t) => t.shipped);
+    const group = (label, rows) => {
+      if (!rows.length) return;
+      if (mine.length) list.append(el('div', 'grp', label));
+      for (const t of rows) {
+        const b = el('button', pick.tracks === t.id ? 'on' : '');
+        b.append(el('div', 't', esc(t.name)));
+        b.append(el('div', 's', `${t.seconds}s · ${t.bars} bars · ${t.voices.length}v · ${esc(t.tags[0] || '')}`));
+        b.onclick = () => { pick.tracks = t.id; stop(); mutes.clear(); solos.clear(); era = t.era; render(); };
+        list.append(b);
+      }
+    };
+    group('YOURS', mine);
+    group('INCLUDED', theirs);
     g.append(list);
     const t = shown.find((x) => x.id === pick.tracks) || shown[0] || manifest.tracks[0];
     if (!t) { main.append(g); return; }

@@ -46,6 +46,19 @@ const TYPES = {
 };
 
 /**
+ * The tracks that ship with the library.
+ *
+ * Listed by name rather than inferred from a tag, because a tag is something
+ * anyone can write and this needs to be exact: everything in tracks/ that is
+ * NOT on this list is the person's own, and their work should never be filed
+ * under somebody else's examples.
+ */
+export const SHIPPED = new Set([
+  'canon-in-d', 'fur-elise', 'greensleeves', 'layers', 'ode-to-joy',
+  'overworld-1-axi', 'prelude-c', 'runner', 'scramble-1-vectrench',
+]);
+
+/**
  * Everything the page needs, in one object: the scores and effects as TEXT.
  *
  * The sources ship rather than rendered audio, because the whole library is
@@ -64,6 +77,7 @@ export async function buildManifest(root) {
       const t = expand(parseScore(text, f).track);
       return {
         id, name: t.name, bpm: t.bpm, beats: t.beats, era: t.era, tags: t.tags,
+        shipped: SHIPPED.has(id),
         bars: t.totalBars, seconds: +t.seconds.toFixed(1), notes: t.notes,
         voices: t.voices.map((v) => ({ id: v.id, inst: v.inst, mix: v.mix, pan: v.pan })),
         blurb: (text.match(/^# ?(.*)$/gm) || []).slice(0, 14).map((l) => l.replace(/^# ?/, '')),
