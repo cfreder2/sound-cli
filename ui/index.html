@@ -1090,11 +1090,24 @@ function fxCard(f) {
 // Tracker layout: two rows of the computer keyboard are two octaves, which is
 // what every chip tracker has used since Protracker and what anybody who has
 // used one already has in their fingers.
+//
+//   Q 2 W 3 E R 5 T 6 Y 7 U    upper octave
+//   Z S X D C V G B H N J M    lower octave
+//
+// Keyed on `code`, not `key`: `code` is the PHYSICAL key, so the shape stays
+// under the same fingers on AZERTY and Dvorak. Keying on the character would
+// scramble it -- on AZERTY the key where Z sits reports 'w', which would land
+// a whole octave and a tone away from where the finger is.
 const KEYMAP = {
-  z: 0, s: 1, x: 2, d: 3, c: 4, v: 5, g: 6, b: 7, h: 8, n: 9, j: 10, m: 11,
-  q: 12, 2: 13, w: 14, 3: 15, e: 16, r: 17, 5: 18, t: 19, 6: 20, y: 21, 7: 22, u: 23,
+  KeyZ: 0, KeyS: 1, KeyX: 2, KeyD: 3, KeyC: 4, KeyV: 5,
+  KeyG: 6, KeyB: 7, KeyH: 8, KeyN: 9, KeyJ: 10, KeyM: 11,
+  KeyQ: 12, Digit2: 13, KeyW: 14, Digit3: 15, KeyE: 16, KeyR: 17,
+  Digit5: 18, KeyT: 19, Digit6: 20, KeyY: 21, Digit7: 22, KeyU: 23,
 };
-const KEYLABEL = Object.fromEntries(Object.entries(KEYMAP).map(([k, v]) => [v, k]));
+const semiFor = (ev) => KEYMAP[ev.code] ?? KEYMAP[`Key${(ev.key || '').toUpperCase()}`]
+  ?? KEYMAP[`Digit${ev.key}`];
+const KEYLABEL = Object.fromEntries(Object.entries(KEYMAP)
+  .map(([k, v]) => [v, k.replace(/^Key|^Digit/, '')]));
 const WHITE_PC = [0, 2, 4, 5, 7, 9, 11];
 const BLACK_OFF = { 1: 0.68, 3: 1.68, 6: 3.68, 8: 4.68, 10: 5.68 };
 
@@ -1176,7 +1189,7 @@ function keysView() {
       k.style.left = `${((oct * 7 + WHITE_PC.indexOf(pc)) / whites) * 100}%`;
       k.style.width = `${(1 / whites) * 100}%`;
     }
-    k.append(el('div', 'lbl', KEYLABEL[semi] ? KEYLABEL[semi].toUpperCase() : ''));
+    k.append(el('div', 'lbl', KEYLABEL[semi] || ''));
     const press = (ev) => { ev.preventDefault(); play(semi); };
     const lift = () => stopNote(semi);
     k.addEventListener('pointerdown', press);
@@ -1188,8 +1201,9 @@ function keysView() {
   }
   c.append(kb);
   c.append(el('div', 'hint',
-    'Z S X D C V G B H N J M is the lower octave, Q 2 W 3 E R 5 T 6 Y 7 U the upper. '
-    + 'Hold shift-escape to cut all notes.'));
+    'Z S X D C V G B H N J M is the lower octave, Q 2 W 3 E R 5 T 6 Y 7 U the upper \u2014 '
+    + 'the tracker layout, by physical key, so it holds on AZERTY and Dvorak too. '
+    + 'Shift-Escape cuts all notes.'));
 
   // --- result --------------------------------------------------------------
   const outBox = el('div');
@@ -1453,12 +1467,15 @@ $('#eqreset').onclick = () => {
   if (trebEq) trebEq.gain.value = 0;
 };
 addEventListener('keyup', (e) => {
-  const semi = KEYMAP[e.key.toLowerCase()];
+  const semi = semiFor(e);
   if (semi !== undefined && kbDown.has(semi)) { kbDown.delete(semi); kbStop?.(semi); }
 });
+// A key held while the tab loses focus never sends keyup, so it would sound
+// forever. Cut everything when the window goes away.
+addEventListener('blur', () => { if (kbDown.size) { kbDown.clear(); panic(); } });
 addEventListener('keydown', (e) => {
   if (tab === 'keys' && !e.target.matches('input,textarea,select') && !e.metaKey && !e.ctrlKey) {
-    const semi = KEYMAP[e.key.toLowerCase()];
+    const semi = semiFor(e);
     if (semi !== undefined) {
       e.preventDefault();
       if (!e.repeat && !kbDown.has(semi)) { kbDown.add(semi); kbPlay?.(semi); }
