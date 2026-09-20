@@ -12,6 +12,7 @@ import { quantize, quantizeError, lfsr, Biquad, panGains } from '../core/dsp.js'
 import { instrumentFor, INSTRUMENTS } from '../core/instruments.js';
 import { quantise, toScore } from '../core/record.js';
 import * as E from '../core/edit.js';
+import { fold, toSectionedText, verify } from '../core/fold.js';
 import { Voice } from '../core/voice.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -471,4 +472,87 @@ test('an edited model still parses, and still renders', () => {
   assert.equal(t.voices.length, 2);
   const out = renderTrack(t, { era: '8bit', bars: 3 });
   assert.ok(out.stats.peakDb > -40 && out.stats.peakDb <= 0.01);
+});
+
+
+// --- folding -----------------------------------------------------------------
+
+test('folding is exactly reversible for every shipped track', () => {
+  for (const f of tracks) {
+    const m = E.toModel(loadScore(readFileSync(join(ROOT, 'tracks', f), 'utf8'), f));
+    const text = toSectionedText(m, fold(m));
+    assert.equal(verify(m, text, loadScore), null, f);
+  }
+});
+
+test('a folded track renders to the same samples as the flat one', () => {
+  for (const f of ['runner.snd', 'greensleeves.snd', 'ode-to-joy.snd']) {
+    const m = E.toModel(loadScore(readFileSync(join(ROOT, 'tracks', f), 'utf8'), f));
+    const flat = loadScore(E.toText(m), f);
+    const folded = loadScore(toSectionedText(m, fold(m)), f);
+    const a = renderTrack(flat, { era: '8bit', bars: 8 });
+    const b = renderTrack(folded, { era: '8bit', bars: 8 });
+    let worst = 0;
+    for (let i = 0; i < a.L.length; i++) worst = Math.max(worst, Math.abs(a.L[i] - b.L[i]));
+    assert.equal(worst, 0, `${f} differs by ${worst}`);
+  }
+});
+
+test('folding finds the repeats a person wrote by hand', () => {
+  // RUNNER is three sections over eight order slots. Rediscovering that from
+  // the played-out form is the whole job.
+  const m = E.toModel(loadScore(readFileSync(join(ROOT, 'tracks', 'runner.snd'), 'utf8'), 'runner'));
+  const f = fold(m);
+  assert.equal(f.played, 32);
+  assert.equal(f.written, 12, 'the hand-written original is also 12 bars');
+  assert.equal(Object.keys(f.sections).length, 3);
+  assert.equal(f.order.length, 8);
+});
+
+test('folding prefers a readable phrase over the smallest possible file', () => {
+  // Chunking at one bar compresses hardest and produces an order of single
+  // bars. The scoring charges each order slot, so phrases win unless single
+  // bars save a lot.
+  const m = E.toModel(loadScore(readFileSync(join(ROOT, 'tracks', 'runner.snd'), 'utf8'), 'runner'));
+  assert.equal(fold(m).phrase, 4);
+});
+
+test('a flat song with no repeats folds to itself, losing nothing', () => {
+  const src = '@track x\n bpm 120\n beats 4\n era 8bit\n@voice v inst=lead mix=0.2\n'
+    + '  c4  -   -   - \n  d4  -   -   - \n  e4  -   -   - \n';
+  const m = E.toModel(loadScore(src, 'x'));
+  const f = fold(m);
+  assert.equal(f.played, 3);
+  assert.equal(verify(m, toSectionedText(m, f), loadScore), null);
+});
+
+test('a voice silent through a section is left out of it', () => {
+  // A section that omits a voice gets silence for it, so not writing an empty
+  // voice is smaller and exactly equivalent. Tested against a hand-made split
+  // rather than through fold(), because fold picks the phrase length and on a
+  // short song it picks one section for everything.
+  const src = `@track x
+  bpm 120
+  beats 4
+  era 8bit
+
+@voice lead inst=lead mix=0.2
+  c4  -   -   -
+  d4  -   -   -
+  -   -   -   -
+  -   -   -   -
+@voice bass inst=bass mix=0.17
+  -   -   -   -
+  -   -   -   -
+  a2  -   -   -
+  g2  -   -   -
+`;
+  const m = E.toModel(loadScore(src, 'x'));
+  const split = { sections: { A: [0, 1], B: [2, 3] }, order: ['A', 'B'], written: 4, played: 4, phrase: 2 };
+  const text = toSectionedText(m, split);
+  const secA = text.slice(text.indexOf('@section A'), text.indexOf('@section B'));
+  const secB = text.slice(text.indexOf('@section B'), text.indexOf('@order'));
+  assert.ok(!secA.includes('bass'), 'bass is silent in bars 1-2 and should not be written there');
+  assert.ok(!secB.includes('lead'), 'lead is silent in bars 3-4 and should not be written there');
+  assert.equal(verify(m, text, loadScore), null, 'and it still round-trips');
 });

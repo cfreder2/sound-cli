@@ -215,6 +215,7 @@
   .trk .btns .a.on{background:var(--hot);color:#2a0a06;border-color:var(--hot)}
   .trk .btns .m.on{background:var(--hot);color:#2a0a06;border-color:var(--hot)}
   .trk .btns .s.on{background:var(--good);color:#04180d;border-color:var(--good)}
+  .btn.on{background:var(--b);color:#001820;border-color:var(--b)}
   .roll{border:1px solid var(--line);border-radius:8px;background:#0a0d11;overflow:auto}
   .roll canvas{display:block;cursor:crosshair}
   .edbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}
@@ -266,6 +267,7 @@
 import { probeScore } from './core/probe.js';
 import { quantise, toScore } from './core/record.js';
 import * as ED from './core/edit.js';
+import { fold as foldSong, toSectionedText } from './core/fold.js';
 import { loadScore } from './core/score.js';
 
 // Both eras of the same thing are decoded and started together, sample
@@ -1783,6 +1785,15 @@ function editorView() {
   // arrangement for its played-out form.
   const saveId = el('input');
   saveId.type = 'text'; saveId.style.width = '150px'; saveId.spellcheck = false;
+  // Both forms are first class. Folded keeps the leverage -- edit the hook
+  // once and every repeat changes. Flat is one bar after another with nothing
+  // to resolve, which is easier to read, easier to diff, and easier for a
+  // model to write.
+  const foldBtn = el('button', 'btn tiny', 'FOLD');
+  foldBtn.title = 'Save as sections and an order instead of one flat timeline';
+  let foldOn = false;
+  foldBtn.onclick = () => { foldOn = !foldOn; foldBtn.classList.toggle('on', foldOn); };
+  top.insertBefore(foldBtn, saveMsg);
   if (m.repeats) {
     saveBtn.textContent = 'SAVE AS';
     saveId.value = `${m.id}-flat`;
@@ -1793,10 +1804,10 @@ function editorView() {
     if (!id) { saveMsg.textContent = 'Name it first.'; saveId.focus(); return; }
     saveMsg.textContent = 'saving…';
     try {
-      const text = ED.toText({
-        ...m, id,
-        name: id === m.id ? m.name : id.replace(/-/g, ' ').toUpperCase(),
-      });
+      const named = { ...m, id, name: id === m.id ? m.name : id.replace(/-/g, ' ').toUpperCase() };
+      const text = foldOn
+        ? toSectionedText(named, foldSong(named))
+        : ED.toText(named);
       const r = await fetch('/api/save', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -1805,7 +1816,8 @@ function editorView() {
       if (r.status === 409) { saveMsg.textContent = `tracks/${id}.snd exists — pick another name.`; return; }
       if (!r.ok) { saveMsg.textContent = await r.text(); return; }
       edDirty = false;
-      saveMsg.innerHTML = `saved to <b>tracks/${esc(id)}.snd</b>`;
+      saveMsg.innerHTML = `saved to <b>tracks/${esc(id)}.snd</b>`
+        + (foldOn ? ` \u00b7 folded to ${foldSong(m).written} written bars` : ' \u00b7 flat');
       manifest = await (await fetch(`data.json?t=${Date.now()}`)).json();
       manifest.substitute = manifest.substituteTable;
     } catch { saveMsg.textContent = 'No local server — editing works, saving needs one.'; }

@@ -14,6 +14,8 @@ import { parseFx, renderFx, explainFx } from '../core/fx.js';
 import { encodeWav, encodeMp3 } from '../core/wav.js';
 import { INSTRUMENTS, listInstruments, instrumentFor } from '../core/instruments.js';
 import { probeScore, ROLE } from '../core/probe.js';
+import { toModel, toText } from '../core/edit.js';
+import { fold as foldTrack, toSectionedText, verify as verifyFold } from '../core/fold.js';
 import { serve, buildManifest } from './serve.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -257,6 +259,40 @@ const VERBS = {
     await playFile(path);
   },
 
+  /**
+   * Rewrite a score as sections and an order, or as one flat timeline.
+   *
+   * Both forms are first class. Folded is smaller and keeps the leverage --
+   * edit the hook once, hear it change everywhere. Flat is one bar after
+   * another with nothing to resolve, which is easier to edit, easier to diff
+   * and easier for a model to write. Neither is more correct; they render
+   * identically, and this converts between them without changing a note.
+   */
+  async fold() {
+    const names = select(positional.slice(1), listTracks());
+    for (const n of names) {
+      const text = readFileSync(join(TRACKS, `${n}.snd`), 'utf8');
+      const m = toModel(loadScore(text, `${n}.snd`));
+      const flat = has('unfold');
+      const f = flat ? null : foldTrack(m);
+      const out = flat
+        ? toText(m, { note: `Unrolled from ${n}.snd` })
+        : toSectionedText(m, f, { note: `Folded from ${n}.snd` });
+      const bad = flat ? null : verifyFold(m, out, loadScore);
+      if (bad) die(`${n}: fold is not reversible (${bad}) -- refusing to write`);
+      const target = flag('out') || (has('in-place') ? n : `${n}-${flat ? 'flat' : 'folded'}`);
+      const path = join(TRACKS, `${target}.snd`);
+      if (existsSync(path) && !has('force') && target !== n) {
+        die(`tracks/${target}.snd exists. Use --force, or --out <name>.`);
+      }
+      writeFileSync(path, out.replace(`@track ${n}`, `@track ${target}`));
+      const bars = flat ? m.bars : f.written;
+      console.log(`  ${n} -> tracks/${target}.snd   ${m.bars} played, ${bars} written`
+        + `${flat ? '' : `, ${Object.keys(f.sections).length} sections, ${f.order.length} slots`}`
+        + `   ${(text.length / 1024).toFixed(0)}K -> ${(out.length / 1024).toFixed(0)}K`);
+    }
+  },
+
   instruments() {
     const era = flag('era');
     for (const e of era ? [era] : ERAS) {
@@ -342,6 +378,8 @@ const VERBS = {
   sound fx list | play <n> | render [names] | explain <n>
       --both  --era  --vary
   sound instruments [--era 16bit]   what is available
+  sound fold <track> [--unfold]     sections+order, or one flat timeline
+      --out <name>  --in-place  --force
   sound explain <instrument>        its layers, spelled out
   sound hear <instrument>           play a phrase on it
   sound view [--port 7171]          the side-by-side preview in a browser

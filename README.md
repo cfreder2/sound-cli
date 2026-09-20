@@ -116,10 +116,39 @@ everything else plays while what you play is recorded into the armed track,
 quantised against the song's own tempo. That is how a song gets built — one
 part at a time against the parts already there.
 
-It edits flat tracks. A song written with `@section` and `@order` plays twenty
-written bars over a seventy-bar arrangement; opening one flattens it into a
-single timeline and says so, because editing bar 40 of an order that visits
-section A four times would mean editing A and changing all four.
+## Unroll to edit, fold to keep
+
+A song can be written two ways and they render identically:
+
+- **flat** — every bar, one after another. Nothing to resolve. Easiest to read,
+  to diff, to edit, and for a model to write.
+- **folded** — short sections named in an `@order`. Smaller, and it keeps the
+  leverage: edit the hook once and all seven repeats change.
+
+The editor unrolls a song to work on it and can fold it again on the way out.
+
+```sh
+sound fold runner            # 32 played, 12 written, 3 sections, 8 slots  13K -> 4K
+sound fold runner --unfold   # back to one flat timeline
+```
+
+Folding rediscovers structure rather than inventing it. It chunks at a fixed
+phrase length — 8, 4, 2 or 1 bars, every offset — and keeps whichever writes
+the fewest bars, charging each order slot a third of a bar so phrases win over
+a hundred-slot order of single bars. On RUNNER it finds exactly the 12 bars and
+3 sections the original was written with; on SCRAMBLE it finds 30 where the
+hand-written file has 34, and on GREENSLEEVES 8 against 9.
+
+It is verified, not assumed: every fold is expanded again and compared note by
+note before it is written, and `sound fold` refuses to write one that does not
+match. All nine tracks round-trip, and a folded track renders to samples
+identical to its flat form — 0.00e+0 apart.
+
+A greedy longest-repeat-first pass was tried first and is a good lesson in why
+this needed measuring. On RUNNER it took bars 4–11 as one block (the hook, then
+the hook again), then 12–19 (bridge, hook), then 20–27 (hook, bridge) — three
+blocks each containing the hook and none matching any other. Zero reuse on a
+song that is four bars repeated.
 
 ## How the pieces fit
 
