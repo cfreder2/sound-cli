@@ -1768,21 +1768,41 @@ function editorView() {
   const m = edSong;
   top.append(el('span', 'meta',
     `${m.bars} bars · ${m.beats}/bar · ${m.bpm} BPM · ${m.era}${edDirty ? ' · unsaved' : ''}`));
-  if (m.wasSectioned) {
+  if (m.repeats) {
     c.append(el('div', 'note',
-      'This song was written with sections and an order. The editor has flattened it into one '
-      + 'timeline, so saving will replace the arrangement with its played-out form.'));
+      `<b>Flattened.</b> This song is written short and repeated: a few sections, played in an `
+      + `order, ${m.repeats} of those plays being a repeat. The editor shows it played out — `
+      + `all ${m.bars} bars, end to end.<br><br>`
+      + 'Editing works normally. What changes is that the repeats are separate copies now, so a '
+      + 'change to one is not a change to the others. It saves under a new name for that reason, '
+      + 'and the original keeps its sections.'));
   }
 
+  // A song with repeated sections is not saved back over itself: the editor
+  // holds it flattened, flattening is one-way, and overwriting would trade an
+  // arrangement for its played-out form.
+  const saveId = el('input');
+  saveId.type = 'text'; saveId.style.width = '150px'; saveId.spellcheck = false;
+  if (m.repeats) {
+    saveBtn.textContent = 'SAVE AS';
+    saveId.value = `${m.id}-flat`;
+    top.insertBefore(saveId, saveMsg);
+  }
   saveBtn.onclick = async () => {
-    const id = m.id;
+    const id = m.repeats ? (saveId.value || '').trim() : m.id;
+    if (!id) { saveMsg.textContent = 'Name it first.'; saveId.focus(); return; }
     saveMsg.textContent = 'saving…';
     try {
+      const text = ED.toText({
+        ...m, id,
+        name: id === m.id ? m.name : id.replace(/-/g, ' ').toUpperCase(),
+      });
       const r = await fetch('/api/save', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ id, text: ED.toText(m), overwrite: true }),
+        body: JSON.stringify({ id, text, overwrite: !m.repeats }),
       });
+      if (r.status === 409) { saveMsg.textContent = `tracks/${id}.snd exists — pick another name.`; return; }
       if (!r.ok) { saveMsg.textContent = await r.text(); return; }
       edDirty = false;
       saveMsg.innerHTML = `saved to <b>tracks/${esc(id)}.snd</b>`;

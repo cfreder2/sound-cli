@@ -15,6 +15,15 @@
 
 import { expand, noteName } from './score.js';
 
+/** How many order slots replay a section that has already been heard. */
+function repeatCount(t) {
+  if (!t.order || !t.sections) return 0;
+  const seen = new Set();
+  let n = 0;
+  for (const k of t.order) { if (seen.has(k)) n += 1; else seen.add(k); }
+  return n;
+}
+
 /** A parsed track into something you can move notes around in. */
 export function toModel(t) {
   const flat = t.voices ? t : expand(t);
@@ -38,7 +47,11 @@ export function toModel(t) {
   return {
     id: flat.id, name: flat.name, bpm: flat.bpm, beats, era: flat.era,
     swing: flat.swing, tags: flat.tags, bars: flat.totalBars, voices,
-    wasSectioned: !!t.sections && Object.keys(t.sections).length > 0,
+    // True only when flattening actually costs something: a section played
+    // more than once becomes that many independent copies, so one edit to the
+    // hook turns into seven. A song whose sections each play once loses its
+    // section NAMES and nothing else, which is not worth warning about.
+    repeats: repeatCount(t),
   };
 }
 
