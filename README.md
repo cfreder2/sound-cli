@@ -146,9 +146,21 @@ them *behind* the near ones rather than merely under them.
 
 ## Instruments
 
-34: eleven 8-bit, twenty-three 16-bit. `sound instruments` lists them,
-`sound explain <name>` prints one's layers, and the Instruments tab in the
-previewer plays a short phrase on any of them.
+34: eleven 8-bit, twenty-three 16-bit.
+
+```sh
+sound instruments          # the list
+sound explain flute        # its layers, spelled out
+sound hear flute           # play a phrase on it
+```
+
+The Instruments tab plays the same phrase from the same source. The phrase
+follows the instrument's role rather than being one generic run, because a
+four-note arpeggio says nothing about a flute's attack and a held whole note
+says nothing about a marimba's decay: sustained voices get a legato line,
+struck voices get a run that exposes each decay, basses get a bass part, kits
+get a beat. It lives in `core/probe.js` so the CLI and the page cannot
+disagree.
 
 8-bit is close to complete by definition — the 2A03 had two pulse channels,
 a triangle and noise, and all three duty cycles are here, plus `noise-lead`

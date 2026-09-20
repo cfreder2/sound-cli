@@ -13,6 +13,7 @@ import { renderTrack } from '../core/render.js';
 import { parseFx, renderFx, explainFx } from '../core/fx.js';
 import { encodeWav, encodeMp3 } from '../core/wav.js';
 import { INSTRUMENTS, listInstruments, instrumentFor } from '../core/instruments.js';
+import { probeScore, ROLE } from '../core/probe.js';
 import { serve, buildManifest } from './serve.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -240,6 +241,22 @@ const VERBS = {
     die(`unknown fx verb '${sub}' (list, play, render, explain)`);
   },
 
+  /** Play one instrument on its own, using the shared probe phrase. */
+  async hear() {
+    const n = positional[1] || die(`hear needs an instrument. Try: ${Object.keys(INSTRUMENTS).join(', ')}`);
+    const inst = INSTRUMENTS[n] || die(`unknown instrument '${n}'`);
+    const era = flag('era') || inst.era;
+    const t = loadScore(probeScore(n, inst), `probe-${n}`);
+    const out = renderTrack(t, { era });
+    const path = join(tmpdir(), `sound-hear-${n}-${era}.wav`);
+    await write(out.L, out.R, out.rate, path, 'wav', 16);
+    const got = instrumentFor(n, era);
+    console.log(`${n}  ${era}  ${ROLE[n] || 'lead'} phrase  ${t.bpm}bpm  ${out.stats.seconds.toFixed(1)}s`
+      + `${got.substituted ? `  [substituted by ${got.name}]` : ''}`);
+    console.log(`  ${inst.desc || ''}`);
+    await playFile(path);
+  },
+
   instruments() {
     const era = flag('era');
     for (const e of era ? [era] : ERAS) {
@@ -326,6 +343,7 @@ const VERBS = {
       --both  --era  --vary
   sound instruments [--era 16bit]   what is available
   sound explain <instrument>        its layers, spelled out
+  sound hear <instrument>           play a phrase on it
   sound view [--port 7171]          the side-by-side preview in a browser
   sound build [dir]                 write that preview as a static site
 

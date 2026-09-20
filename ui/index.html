@@ -210,6 +210,8 @@
 </div>
 
 <script type="module">
+import { probeScore } from './core/probe.js';
+
 // Both eras of the same thing are decoded and started together, sample
 // aligned, and the A/B switch only moves gain between them. That is what makes
 // the comparison honest: no reload, no restart, no drift, and the ear is
@@ -227,6 +229,7 @@ const ICON = {
 let ctx, master, era = '8bit', manifest = null;
 let now = null;       // { sources, gains, buffers, startOffset, startedAt, dur, id }
 let paused = false, pausedAt = 0, speed = 1, looping = false, nativeEra = null;
+let probing = null;   // the instrument phrase currently sounding, if any
 let raf = 0;
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -415,6 +418,7 @@ function killSources() {
 }
 
 function stop() {
+  if (probing) { try { probing.stop(); } catch {} probing = null; }
   killSources();
   now = null; paused = false; pausedAt = 0;
   cancelAnimationFrame(raf); raf = 0;
@@ -1048,22 +1052,20 @@ function render() {
         const b = el('button', 'hear', '\u25b6');
         b.title = `Hear ${i.name}`;
         b.onclick = async () => {
-          // A throwaway score, built here rather than kept as a file: the
-          // probe phrase is the same for every instrument, so a file per
-          // instrument would be 34 files that differ by one word.
-          const note = i.detail.drums ? 'k   .   h   .   s   .   h   .'
-            : i.name === 'arp' ? 'am  .   .   .   .   .   .   .'
-              : 'a3  c4  e4  a4  .   .   .   .';
-          const src = `@track probe\n  name PROBE\n  bpm 96\n  beats 8\n  era ${i.era}\n\n`
-            + `@voice v inst=${i.name} mix=0.22\n  ${note}\n`;
+          if (probing) { try { probing.stop(); } catch {} probing = null; }
+          // The phrase comes from core/probe.js, so this and `sound hear`
+          // play the same thing: a legato line for sustained voices, a run
+          // for struck ones, a bass part for basses, a beat for kits.
+          const src = probeScore(i.name, i.detail);
           b.classList.add('lit');
           try {
             const bufs = await buffers('track', `probe-${i.name}`, {}, null, src);
-            const src2 = audio().createBufferSource();
-            src2.buffer = bufs[ERAS.indexOf(i.era)];
-            src2.connect(master);
-            src2.start();
-            src2.onended = () => b.classList.remove('lit');
+            const node = audio().createBufferSource();
+            node.buffer = bufs[ERAS.indexOf(i.era)];
+            node.connect(master);
+            node.start();
+            probing = node;
+            node.onended = () => { b.classList.remove('lit'); if (probing === node) probing = null; };
           } catch (e) { b.classList.remove('lit'); fail(`hearing ${i.name}`, e); }
         };
         tr.firstChild.append(b);
