@@ -111,7 +111,7 @@ and two originals.
 | `runner` | Original stage theme, native 8-bit. Sections, fills, sweeps, an arrangement |
 | `layers` | **A teaching track.** Four bars, six times, one more voice each pass |
 
-**Effects** — 84, each defining both eras in the same file. The previewer has a
+**Effects** — 93, each defining both eras in the same file. The previewer has a
 search box (`/` to focus) that filters on name, description and tags.
 
 | | |
@@ -130,6 +130,9 @@ search box (`/` to focus) that filters on name, description and tags.
 | strategy | `build` |
 | arcade | `gameover` `extralife` `hurt` `death` |
 | ambience | `fire` `wind` `door` `fireworks` `fireworks-finale` |
+| animals | `birds` `dog-bark` `cat-meow` `snake-hiss` |
+| vehicles | `engine` `skid` `gearshift` `car-horn` `truck-horn` `boat-horn` |
+| tabletop | `dice-roll` `wheel-spin` |
 
 The eleven explosions differ by mechanism, not by gain. `-mine` is 79% of its
 energy in the first 20 ms with a 0.05 s tail; `-distant` has no transient at
