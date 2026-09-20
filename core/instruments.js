@@ -28,6 +28,19 @@
 //   delay    seconds late, for a slapback layer
 //   bed      noise flavour: long (hiss) | metal (short register) | white
 
+// `trim` is a per-instrument loudness calibration, and it is not cosmetic.
+//
+// Measured across the library, the same `mix=` value produced a 21.5 dB spread
+// in perceived level: a 50% pulse is 12.6 dB louder than a pluck for identical
+// settings, because nothing ever made them agree. That meant a score's balance
+// was an accident of which synthesis method each voice happened to use, and it
+// changed when the era changed -- which is exactly why 16-bit renders came out
+// bass-heavy while 8-bit ones did not. The chord voice was simply vanishing.
+//
+// Each number is the gain that brings a sustained A3 to a common K-weighted
+// level, so `mix=0.15` now means the same loudness whatever is playing it.
+// Regenerate them with tools/calibrate.mjs after changing any layer.
+
 // --- FM, for the 16-bit era -------------------------------------------------
 //
 // Four operators. `mod` lists, per operator, which operators modulate it;
@@ -54,23 +67,23 @@ export const INSTRUMENTS = {
   // down in fifteen steps. Both are audible and both are the point.
 
   pulse12: {
-    era: '8bit', quantize: true, env: 'nes',
+    era: '8bit', trim: 0.294, quantize: true, env: 'nes',
     desc: 'Thin nasal lead. 12.5% duty -- the one everybody remembers.',
     layers: [{ osc: 'pulse', duty: 0.125, gain: 1 }],
   },
   pulse25: {
-    era: '8bit', quantize: true, env: 'nes',
+    era: '8bit', trim: 0.218, quantize: true, env: 'nes',
     desc: 'Reedy lead. 25% duty, the workhorse.',
     layers: [{ osc: 'pulse', duty: 0.25, gain: 1 }],
   },
   pulse50: {
-    era: '8bit', quantize: true, env: 'nes',
+    era: '8bit', trim: 0.192, quantize: true, env: 'nes',
     desc: 'Hollow square. 50% duty has NO even harmonics -- the clarinet one.',
     layers: [{ osc: 'pulse', duty: 0.5, gain: 1 }],
   },
   // The layered lead: the reason VECTRENCH's lead sounds like an instrument.
   lead: {
-    era: '8bit', quantize: true, env: 'nes', cut: 3000,
+    era: '8bit', trim: 0.216, quantize: true, env: 'nes', cut: 3000,
     desc: 'LAYERED: 25% pulse + a stepped triangle an octave under for body.',
     layers: [
       { osc: 'pulse', duty: 0.25, gain: 1 },
@@ -79,7 +92,7 @@ export const INSTRUMENTS = {
   },
   // The layered lead with a slapback, which is AXI's trick.
   'lead-echo': {
-    era: '8bit', quantize: true, env: 'nes', cut: 3200,
+    era: '8bit', trim: 0.267, quantize: true, env: 'nes', cut: 3200,
     desc: 'LAYERED: 12.5% pulse, a triangle under it, and a dotted-eighth repeat.',
     layers: [
       { osc: 'pulse', duty: 0.125, gain: 1 },
@@ -88,12 +101,12 @@ export const INSTRUMENTS = {
     ],
   },
   tri: {
-    era: '8bit', quantize: true, env: 'nes',
+    era: '8bit', trim: 0.322, quantize: true, env: 'nes',
     desc: 'The hardware triangle: a 32-level staircase, not a smooth ramp.',
     layers: [{ osc: 'nestri', gain: 1 }],
   },
   bass: {
-    era: '8bit', quantize: true, env: 'nes', cut: 900,
+    era: '8bit', trim: 0.29, quantize: true, env: 'nes', cut: 900,
     desc: 'LAYERED: hardware triangle plus a quiet 50% square for definition.',
     layers: [
       { osc: 'nestri', gain: 1 },
@@ -101,11 +114,11 @@ export const INSTRUMENTS = {
     ],
   },
   arp: {
-    era: '8bit', quantize: true, env: 'nes', cut: 2600, arpRate: 1,
+    era: '8bit', trim: 0.235, quantize: true, env: 'nes', cut: 2600, arpRate: 1,
     desc: 'One voice cycling a chord fast enough that the ear hears a chord.',
     layers: [{ osc: 'pulse', duty: 0.5, gain: 1 }],
   },
-  kit: { era: '8bit', drums: '8bit', desc: 'The 2A03 kit: noise channel and a swept sine.' },
+  kit: { era: '8bit', trim: 0.55, drums: '8bit', desc: 'The 2A03 kit: noise channel and a swept sine.' },
 
   // ==================================================== 16-bit: SNES/Genesis ==
   //
@@ -118,7 +131,7 @@ export const INSTRUMENTS = {
     // so a bright patch on a high note folds its upper sidebands back down as
     // an inharmonic whistle. Rolling off near 7 kHz costs nothing audible and
     // removes the folded energy.
-    era: '16bit', env: { a: 0.006, d: 0.12, s: 0.72, r: 0.12 }, cut: 7000,
+    era: '16bit', trim: 0.404, env: { a: 0.006, d: 0.12, s: 0.72, r: 0.12 }, cut: 7000,
     desc: 'FM brass lead, two carriers, one modulator falling fast -- the stab.',
     fm: {
       algo: 'brass',
@@ -128,7 +141,7 @@ export const INSTRUMENTS = {
     layers: [{ osc: 'fm', gain: 1 }],
   },
   'fm-bass': {
-    era: '16bit', env: { a: 0.003, d: 0.14, s: 0.55, r: 0.09 }, cut: 2600,
+    era: '16bit', trim: 0.382, env: { a: 0.003, d: 0.14, s: 0.55, r: 0.09 }, cut: 2600,
     desc: 'FM bass: one modulator at 1:1 with light feedback. The Genesis thump.',
     fm: {
       algo: 'bass',
@@ -146,7 +159,7 @@ export const INSTRUMENTS = {
     layers: [{ osc: 'fm', gain: 1 }, { osc: 'sine', semi: 12, gain: 0.14 }],
   },
   'fm-bell': {
-    era: '16bit', env: { a: 0.002, d: 0.9, s: 0.06, r: 0.5 }, cut: 9000,
+    era: '16bit', trim: 0.248, env: { a: 0.002, d: 0.9, s: 0.06, r: 0.5 }, cut: 9000,
     desc: 'FM bell: inharmonic ratios, long decay. Menus and pickups.',
     fm: {
       algo: 'bell',
@@ -156,7 +169,7 @@ export const INSTRUMENTS = {
     layers: [{ osc: 'fm', gain: 1 }],
   },
   strings: {
-    era: '16bit', env: { a: 0.09, d: 0.25, s: 0.80, r: 0.30 }, cut: 4200,
+    era: '16bit', trim: 0.334, env: { a: 0.09, d: 0.25, s: 0.80, r: 0.30 }, cut: 4200,
     desc: 'LAYERED: three saws detuned +-7 cents. The beating IS the ensemble.',
     layers: [
       { osc: 'saw', detune: -7, gain: 0.55 },
@@ -166,7 +179,7 @@ export const INSTRUMENTS = {
     ],
   },
   pad: {
-    era: '16bit', env: { a: 0.35, d: 0.4, s: 0.85, r: 0.6 }, cut: 2600,
+    era: '16bit', trim: 0.418, env: { a: 0.35, d: 0.4, s: 0.85, r: 0.6 }, cut: 2600,
     desc: 'LAYERED: detuned saws plus a fifth. Slow attack, long tail.',
     layers: [
       { osc: 'saw', detune: -9, gain: 0.4 },
@@ -176,17 +189,17 @@ export const INSTRUMENTS = {
     ],
   },
   piano: {
-    era: '16bit', env: { a: 0.002, d: 0.85, s: 0.14, r: 0.28 }, cut: 5200,
+    era: '16bit', trim: 0.658, env: { a: 0.002, d: 0.85, s: 0.14, r: 0.28 }, cut: 5200,
     desc: 'LAYERED: a struck tone, an octave shimmer, and a noise-burst hammer.',
     layers: [
-      { osc: 'tri', gain: 0.8 },
-      { osc: 'saw', gain: 0.22 },
-      { osc: 'sine', semi: 12, gain: 0.16 },
+      { osc: 'tri', gain: 0.52 },
+      { osc: 'saw', gain: 0.40 },
+      { osc: 'sine', semi: 12, gain: 0.20 },
       { osc: 'noise', bed: 'white', gain: 0.07, hold: 0.012 },
     ],
   },
   organ: {
-    era: '16bit', env: { a: 0.01, d: 0.05, s: 0.95, r: 0.06 },
+    era: '16bit', trim: 0.294, env: { a: 0.01, d: 0.05, s: 0.95, r: 0.06 },
     desc: 'LAYERED: drawbar additive -- root, octave, fifth, two octaves.',
     layers: [
       { osc: 'sine', gain: 0.6 },
@@ -196,7 +209,7 @@ export const INSTRUMENTS = {
     ],
   },
   pluck: {
-    era: '16bit', env: { a: 0.002, d: 0.22, s: 0.0, r: 0.1 }, cut: 3800,
+    era: '16bit', trim: 1.517, env: { a: 0.002, d: 0.22, s: 0.0, r: 0.1 }, cut: 3800,
     desc: 'LAYERED: a short saw plus a noise pick. Harp, guitar, koto.',
     layers: [
       { osc: 'saw', gain: 0.75 },
@@ -204,7 +217,7 @@ export const INSTRUMENTS = {
       { osc: 'noise', bed: 'white', gain: 0.1, hold: 0.008 },
     ],
   },
-  'kit16': { era: '16bit', drums: '16bit', desc: 'A sampled-style kit: layered body, snap and air.' },
+  'kit16': { era: '16bit', trim: 0.285, drums: '16bit', desc: 'A sampled-style kit: layered body, snap and air.' },
 };
 
 /** The instrument an era falls back to when a score names one from the other. */

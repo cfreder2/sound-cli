@@ -177,6 +177,11 @@
     </div>
     <span class="meta" id="eranote"></span>
     <div class="grow"></div>
+    <span class="meta" title="Low shelf at 200 Hz">BASS</span>
+    <input type="range" id="bass" min="-12" max="12" step="0.5" value="0" style="width:84px">
+    <span class="meta" title="High shelf at 3 kHz">TREBLE</span>
+    <input type="range" id="treb" min="-12" max="12" step="0.5" value="0" style="width:84px">
+    <button class="btn tiny" id="eqreset">FLAT</button>
     <span class="meta">VOL</span><input type="range" id="vol" min="0" max="1" step="0.01" value="0.75">
   </div>
   <nav id="tabs">
@@ -214,12 +219,21 @@ const el = (t, c, h) => { const n = document.createElement(t); if (c) n.classNam
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
+let bassEq = null, trebEq = null;
 function audio() {
   if (!ctx) {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
     master = ctx.createGain();
     master.gain.value = +$('#vol').value;
-    master.connect(ctx.destination);
+    // A listening EQ, not a render setting. It sits after everything and
+    // changes nothing on disk -- it is for answering "is this too bassy, or is
+    // it my laptop", which is a question a preview tool should be able to
+    // settle in two seconds. `--tilt` on render is the version that persists.
+    bassEq = ctx.createBiquadFilter();
+    bassEq.type = 'lowshelf'; bassEq.frequency.value = 200; bassEq.gain.value = +$('#bass').value;
+    trebEq = ctx.createBiquadFilter();
+    trebEq.type = 'highshelf'; trebEq.frequency.value = 3000; trebEq.gain.value = +$('#treb').value;
+    master.connect(bassEq); bassEq.connect(trebEq); trebEq.connect(ctx.destination);
   }
   if (ctx.state !== 'running') ctx.resume();
   return ctx;
@@ -911,6 +925,13 @@ $('#tabs').onclick = (e) => {
 };
 $('#era').onclick = (e) => { const b = e.target.closest('button'); if (b) setEra(b.dataset.era); };
 $('#vol').oninput = (e) => { if (master) master.gain.value = +e.target.value; };
+$('#bass').oninput = (e) => { if (bassEq) bassEq.gain.value = +e.target.value; };
+$('#treb').oninput = (e) => { if (trebEq) trebEq.gain.value = +e.target.value; };
+$('#eqreset').onclick = () => {
+  $('#bass').value = '0'; $('#treb').value = '0';
+  if (bassEq) bassEq.gain.value = 0;
+  if (trebEq) trebEq.gain.value = 0;
+};
 addEventListener('keydown', (e) => {
   if (e.target.matches('input,textarea')) return;
   if (e.key === ' ') { e.preventDefault(); $('#bplay')?.click(); }

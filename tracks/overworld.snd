@@ -1,0 +1,70 @@
+# OVERWORLD -- AXI's field theme, and the only track here that came from AXI.
+#
+# Originally written for AXI and imported from that project:
+# https://github.com/cfreder2/axi  (web/sound.js)
+#
+# It did not exist as a score. AXI keeps it as four raw MIDI arrays inside a
+# 'Music' class -- LEAD as numbers, CHORDS as triads, ROOTS and a WALK pattern
+# that the player combines at runtime into a bass line. This file is that same
+# music written out as a score, with the generated bass spelled out bar by bar
+# rather than assembled by a loop. Nothing was transposed or re-voiced.
+#
+# The groove is modelled on the SHAPE of a 1-1 overworld theme rather than its
+# tune: a brisk two-beat bounce, a bass walking in octaves underneath, a melody
+# landing off the beat as often as on it, and a drum part that never stops
+# moving. The notes are original.
+#
+# Two things worth hearing. The lead uses 'lead-echo', which is AXI's own
+# trick -- every note repeats a dotted eighth later at just under half volume,
+# and that repeat is the only depth a single mono pulse channel can have. And
+# the bass does not sit on roots: it walks root, root, octave, fifth in
+# eighths, which is the entire engine of the bounce.
+
+@track overworld
+  name   OVERWORLD
+  bpm    104
+  beats  16
+  era    8bit
+  tags   axi game original
+
+@voice lead inst=lead-echo mix=0.19
+  c5  .   d5  .   .   e5  .   .   g5  .   f5  .   e5  .   .   .
+  d5  .   e5  .   .   g5  .   .   a5  .   .   .   g5  .   .   .
+  e5  .   g5  .   .   a5  .   .   c6  .   .   b5  .   a5  .   .
+  g5  .   .   .   e5  .   .   .   c5  .   .   .   d5  .   .   .
+  a5  .   .   g5  .   .   f5  .   .   e5  .   .   d5  .   .   .
+  e5  .   .   d5  .   .   c5  .   .   b4  .   .   a4  .   .   .
+  a4  .   c5  .   .   d5  .   .   e5  .   .   g5  .   .   .   .
+  f5  .   .   .   e5  .   .   .   d5  .   .   .   c5  .   .   .
+
+@voice arp inst=arp mix=0.055
+  c   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  dm  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  c   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  g   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  am  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  c   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  f   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  g   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+
+# Bass on eighths: root, root, octave, fifth. Written out because it was
+# generated at runtime in AXI and a score has to say what it plays.
+@voice bass inst=tri mix=0.17
+  c2  .   c2  .   c3  .   g2  .   c2  .   c3  .   g2  .   c2  .
+  c2  .   c2  .   c3  .   g2  .   c2  .   c3  .   g2  .   c2  .
+  f2  .   f2  .   f3  .   c3  .   f2  .   f3  .   c3  .   f2  .
+  g2  .   g2  .   g3  .   d3  .   g2  .   g3  .   d3  .   g2  .
+  f2  .   f2  .   f3  .   c3  .   f2  .   f3  .   c3  .   f2  .
+  c2  .   c2  .   c3  .   g2  .   c2  .   c3  .   g2  .   c2  .
+  d2  .   d2  .   d3  .   a2  .   d2  .   d3  .   a2  .   d2  .
+  g2  .   g2  .   g3  .   d3  .   g2  .   g3  .   d3  .   g2  .
+
+@voice drums inst=kit mix=0.105
+  k   h   .   h   s   h   k   h   .   h   k   h   s   h   .   h
+  k   h   .   h   s   h   k   h   .   h   k   h   s   h   .   h
+  k   h   .   h   s   h   k   h   .   h   k   h   s   h   .   h
+  k   h   .   h   s   h   k   h   .   h   k   h   x   x   t   x
+  k   h   .   h   s   h   k   h   .   h   k   h   s   h   .   h
+  k   h   .   h   s   h   k   h   .   h   k   h   s   h   .   h
+  k   h   .   h   s   h   k   h   .   h   k   h   s   h   .   h
+  k   h   .   h   s   h   k   h   .   h   k   h   x   x   t   x

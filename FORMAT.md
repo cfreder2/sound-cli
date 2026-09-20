@@ -64,6 +64,14 @@ four-voice chip could play harmony at all.
 | `pan` | `0` | −1 hard left to 1 hard right. 8-bit ignores it; the 2A03 was mono |
 | `oct` | `0` | transpose by whole octaves, so a part can be written where it reads best |
 | `echo` | era default | send to the echo bus. 8-bit has no bus |
+| `lp` | — | low-pass corner in Hz. Darkens a voice that is too forward |
+| `hp` | — | high-pass corner in Hz. Thins a voice that is crowding the bass |
+| `tilt` | `0` | dB of high shelf at 1.5 kHz. Positive brightens, negative darkens |
+
+`mix` is a real unit: every instrument is calibrated to a common loudness, so
+`mix=0.15` sounds the same whatever is playing it. When a part is right but
+sits wrong, reach for `tilt` or `lp` before reaching for `mix` — dropping the
+level makes a part quiet, not correct.
 
 ## Sections and @order
 

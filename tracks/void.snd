@@ -1,0 +1,105 @@
+# VOID -- deep space, and the quietest thing in the book.
+#
+# Originally written for VECTRENCH and imported from that project's score book:
+# https://github.com/cfreder2/VECTRENCH  (src/songs.js)
+#
+# The opposite of SCRAMBLE in every respect, which is why both are here. 96 BPM
+# against 150. No arpeggio at all -- the channel that usually supplies harmony is
+# simply not used, and the harmony comes instead from held DYADS in the second
+# voice, most of them a tritone. Nothing walks: the bass is a pedal that shudders
+# a half-step and returns.
+#
+# It is the track to reach for when asking whether an arrangement needs density.
+# Three sections and eight slots carry two minutes, and it does not feel short of
+# material -- because the space IS the material.
+
+@track void
+  name   VOID
+  bpm    96
+  beats  16
+  era    8bit
+  tags   vectrench game original
+
+@section A
+@voice lead inst=lead mix=0.21 tilt=3
+  e4  .   .   .   .   .   .   .   a#4 .   .   .   .   .   .   .
+  e4  .   .   .   .   .   .   .   -   -   -   -   d4  .   .   .
+  f4  .   .   .   .   .   .   .   b4  .   .   .   .   .   .   .
+  e4  .   .   .   .   .   .   .   -   -   -   -   -   -   -   -
+  g4  .   .   .   .   .   a#4 .   .   .   .   .   e4  .   .   .
+  f#4 .   .   .   .   .   .   .   c5  .   .   .   .   .   .   .
+  f4  .   .   .   e4  .   .   .   d#4 .   .   .   e4  .   .   .
+  e4  .   .   .   .   .   .   .   -   -   -   -   -   -   -   -
+@voice lead2 inst=pulse12 mix=0.07
+  a#3 .   .   .   .   .   .   .   e4  .   .   .   .   .   .   .
+  a#3 .   .   .   .   .   .   .   -   -   -   -   g#3 .   .   .
+  b3  .   .   .   .   .   .   .   f4  .   .   .   .   .   .   .
+  a#3 .   .   .   .   .   .   .   -   -   -   -   -   -   -   -
+  c#4 .   .   .   .   .   e4  .   .   .   .   .   a#3 .   .   .
+  c4  .   .   .   .   .   .   .   f#4 .   .   .   .   .   .   .
+  b3  .   .   .   a#3 .   .   .   a3  .   .   .   a#3 .   .   .
+  a#3 .   .   .   .   .   .   .   -   -   -   -   -   -   -   -
+@voice bassLine inst=bass mix=0.125 lp=520
+  e2  .   .   .   .   .   .   .   e2  .   .   .   .   .   .   .
+  e2  .   .   .   .   .   .   .   f2  .   .   .   e2  .   .   .
+  e2  .   .   .   .   .   .   .   e2  .   .   .   .   .   .   .
+  e2  .   .   .   .   .   .   .   d#2 .   .   .   e2  .   .   .
+  e2  .   .   .   .   .   .   .   e2  .   .   .   .   .   .   .
+  e2  .   .   .   .   .   .   .   f2  .   .   .   .   .   .   .
+  e2  .   .   .   .   .   .   .   a#1 .   .   .   .   .   .   .
+  e2  .   .   .   .   .   .   .   e2  .   .   .   .   .   .   .
+@voice drums inst=kit mix=0.11
+  k   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  k   .   .   .   .   .   .   .   m   .   .   .   .   .   .   .
+  k   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  k   .   .   .   .   .   .   .   m   .   .   .   .   .   .   .
+  k   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  k   .   .   .   .   .   .   .   m   .   .   .   .   .   .   .
+  k   .   .   .   .   .   .   .   k   .   .   .   .   .   .   .
+  k   .   .   .   .   .   .   .   m   .   .   .   m   .   .   .
+
+@section B
+@voice lead inst=lead mix=0.21 tilt=3
+  d#4 .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  -   -   -   -   -   -   -   -   -   -   -   -   -   -   -   -
+  a4  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  g#4 .   .   .   .   .   .   .   .   .   .   .   -   -   -   -
+@voice lead2 inst=pulse12 mix=0.07
+  a3  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  -   -   -   -   -   -   -   -   -   -   -   -   -   -   -   -
+  d#4 .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  d4  .   .   .   .   .   .   .   .   .   .   .   -   -   -   -
+@voice bassLine inst=bass mix=0.125 lp=520
+  d2  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  d2  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  d2  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  d2  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+@voice drums inst=kit mix=0.11
+  k   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  k   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  k   .   .   .   .   .   .   .   m   .   .   .   .   .   .   .
+
+@section D
+@voice lead inst=lead mix=0.21 tilt=3
+  e4  .   .   .   .   .   a#4 .   e5  .   .   .   d#5 .   .   .
+  f4  .   .   .   c5  .   .   .   b4  .   .   .   f4  .   .   .
+  d#4 .   .   .   a4  .   .   .   g#4 .   .   .   d#4 .   .   .
+  e4  .   .   .   b4  .   .   .   a#4 .   f#4 .   e4  .   .   .
+@voice lead2 inst=pulse12 mix=0.07
+  a#3 .   .   .   e4  .   .   .   b4  .   .   .   a#4 .   .   .
+  c4  .   .   .   f4  .   .   .   e4  .   .   .   c4  .   .   .
+  a3  .   .   .   d#4 .   .   .   d4  .   .   .   a3  .   .   .
+  a#3 .   .   .   f#4 .   .   .   e4  .   d#4 .   a#3 .   .   .
+@voice bassLine inst=bass mix=0.125 lp=520
+  .   e2  .   e3  .   e2  .   a#2 .   e2  .   e3  .   f2  .   e2
+  .   f2  .   f3  .   f2  .   c3  .   f2  .   f3  .   e2  .   f2
+  .   d#2 .   d#3 .   d#2 .   a#2 .   d#2 .   d#3 .   e2  .   d#2
+  .   e2  .   e3  .   e2  .   b2  .   e2  .   f2  .   d#2 .   e2
+@voice drums inst=kit mix=0.11
+  .   .   m   .   .   .   m   .   .   .   m   .   .   .   m   .
+  .   .   m   .   .   .   m   .   .   .   m   .   .   .   m   .
+  .   .   m   .   .   .   m   .   .   .   m   .   .   .   m   .
+  k   .   m   .   m   .   m   .   m   .   m   .   m   m   m   m
+
+@order A D A D A B D A

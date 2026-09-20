@@ -167,6 +167,14 @@ export function parseScore(text, filename = '<score>') {
           pan: num(opts.pan, 0),
           oct: num(opts.oct, 0),
           echo: num(opts.echo, 0),
+          // Per-voice tone. `lp` and `hp` are corner frequencies in Hz and
+          // `tilt` is dB of high-shelf at 1.5 kHz -- positive brightens,
+          // negative darkens. A part that is right but sits wrong in the mix
+          // is a tone problem, and fixing it by dropping `mix` just makes the
+          // part quiet instead of making it fit.
+          lp: num(opts.lp, 0),
+          hp: num(opts.hp, 0),
+          tilt: num(opts.tilt, 0),
           cut: opts.cut ? Number(opts.cut) : 0,
           bars: [],
           line: ln + 1,

@@ -258,14 +258,44 @@ export function panGains(p) {
   return [Math.cos(a), Math.sin(a)];
 }
 
-/** A soft knee limiter on the master bus, so a dense 16-bit mix cannot clip. */
-export function limit(L, R, ceiling = 0.89) {
-  let peak = 0;
+/**
+ * Hold the mix under a ceiling, and report what it took.
+ *
+ * A whole-signal scale was costing FUR ELISE 3.3 dB because a handful of piano
+ * attacks poked above the ceiling -- so the entire track came out quieter than
+ * its 8-bit twin, and the A/B stopped comparing timbre. This rides the gain
+ * instead: it pulls down only around the peaks and recovers, so the body of
+ * the track keeps its level.
+ *
+ * 5 ms attack, not 1: at a 73 Hz bass note one cycle is 13.7 ms, and a gain
+ * envelope that moves faster than the waveform IS distortion rather than
+ * limiting. A final clamp catches the few samples the attack cannot reach.
+ *
+ * Returns the peak AFTER the reduction, plus how much was applied. Returning
+ * the peak it found rather than the peak it left behind is a lie that reads as
+ * "this track clips" about a track that does not -- and it hides the thing
+ * actually worth knowing, which is how many dB of headroom the arrangement is
+ * short. A whole-signal scale is used rather than a real limiter because it is
+ * transparent: nothing is distorted, the track is simply quieter.
+ */
+export function limit(L, R, ceiling = 0.89, rate = RATE) {
+  let raw = 0;
+  for (let i = 0; i < L.length; i++) raw = Math.max(raw, Math.abs(L[i]), Math.abs(R[i]));
+  if (raw <= ceiling || raw === 0) return { peak: raw, reducedDb: 0, rawPeak: raw };
+
+  const att = Math.exp(-1 / (0.005 * rate));
+  const rel = Math.exp(-1 / (0.150 * rate));
+  let g = 1, minG = 1, peak = 0;
   for (let i = 0; i < L.length; i++) {
-    peak = Math.max(peak, Math.abs(L[i]), Math.abs(R[i]));
+    const x = Math.max(Math.abs(L[i]), Math.abs(R[i]));
+    const want = x > ceiling ? ceiling / x : 1;
+    g = want < g ? att * g + (1 - att) * want : rel * g + (1 - rel) * want;
+    if (g < minG) minG = g;
+    let l = L[i] * g, r = R[i] * g;
+    if (l > ceiling) l = ceiling; else if (l < -ceiling) l = -ceiling;
+    if (r > ceiling) r = ceiling; else if (r < -ceiling) r = -ceiling;
+    L[i] = l; R[i] = r;
+    peak = Math.max(peak, Math.abs(l), Math.abs(r));
   }
-  if (peak <= ceiling || peak === 0) return peak;
-  const g = ceiling / peak;
-  for (let i = 0; i < L.length; i++) { L[i] *= g; R[i] *= g; }
-  return peak;
+  return { peak, reducedDb: 20 * Math.log10(minG), rawPeak: raw };
 }

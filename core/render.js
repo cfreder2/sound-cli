@@ -60,14 +60,15 @@ function fmVoice(spec) {
  */
 function renderNote(mix, opts) {
   const {
-    at, dur, note, inst, gain, pan, vib, sweep, accent, send,
+    at, dur, note, inst, gain, pan, vib, sweep, accent, send, tone,
   } = opts;
   const baseMidi = note;
   const env = inst.env === 'nes' ? null : (inst.env || { a: 0.005, d: 0.06, s: 0.7, r: 0.1 });
   const relTail = env ? env.r : 0;
   const total = dur + relTail;
   const [gl, gr] = panGains(pan);
-  const amp = gain * (accent ? 1.35 : 1);
+  // `trim` makes `mix=` mean one thing across every instrument. See instruments.js.
+  const amp = gain * (inst.trim ?? 1) * (accent ? 1.35 : 1);
   const sweepTab = sweep ? sweepPoints(hz(baseMidi), { up: sweep > 0 }) : null;
   const fm = inst.fm ? fmVoice(inst.fm) : null;
 
@@ -81,7 +82,15 @@ function renderNote(mix, opts) {
     let f0 = hz(lm) * 2 ** ((layer.detune || 0) / 1200);
     if (inst.quantize) f0 = quantize(f0);
     const lg = amp * (layer.gain ?? 1);
-    const filt = inst.cut ? new Biquad('lowpass', inst.cut, 0.8) : null;
+    // The instrument's own voicing filter, then the voice's tone. Both are
+    // per-note here rather than on a shared bus, which costs a few biquads and
+    // buys not having to restructure the mixer for a feature most voices do
+    // not use.
+    const chain = [];
+    if (inst.cut) chain.push(new Biquad('lowpass', inst.cut, 0.8));
+    if (tone?.lp) chain.push(new Biquad('lowpass', tone.lp, 0.707));
+    if (tone?.hp) chain.push(new Biquad('highpass', tone.hp, 0.707));
+    if (tone?.tilt) chain.push(new Biquad('highshelf', 1500, 0.707, tone.tilt));
     const noise = layer.osc === 'noise' ? noiseBed(layer.bed || 'long') : null;
     let phase = 0;
 
@@ -111,7 +120,7 @@ function renderNote(mix, opts) {
         s = oscSample(layer.osc, phase, f / RATE, layer.duty ?? 0.5, noise, i);
       }
       s *= e * lg;
-      if (filt) s = filt.run(s);
+      for (const f of chain) s = f.run(s);
 
       mix.L[j] += s * gl;
       mix.R[j] += s * gr;
@@ -227,7 +236,7 @@ function renderDrum(mix, at, hit, gain, era, send) {
  */
 export function renderTrack(track, {
   era = track.era, rate = RATE, intensity = 1, bars = null, tail = TAIL,
-  targetRmsDb = -18, normalize = true, bpm = null, from = 0,
+  targetRmsDb = -18, normalize = true, bpm = null, from = 0, tilt = 0, ceiling = 0.89,
 } = {}) {
   // Overriding the tempo here re-sequences the score, so the notes keep their
   // pitch. The preview page's speed slider resamples instead, which is instant
@@ -252,6 +261,8 @@ export function renderTrack(track, {
     used.push({ voice: voice.id, inst: name, substituted, from });
     const send = era === '16bit' ? (voice.echo || 0.12) : 0;
     const octShift = (voice.oct || 0) * 12;
+    const tone = (voice.lp || voice.hp || voice.tilt)
+      ? { lp: voice.lp, hp: voice.hp, tilt: voice.tilt } : null;
 
     for (let i = firstStep; i < lastStep; i++) {
       const cell = voice.bars[Math.floor(i / track.beats)]?.[i % track.beats];
@@ -262,7 +273,7 @@ export function renderTrack(track, {
       const at = (i - firstStep) * stepTime + swing;
 
       if (voice.kind === 'drum') {
-        renderDrum(mix, at, cell.hit, voice.mix * intensity * 2.2, era, send * 0.5);
+        renderDrum(mix, at, cell.hit, voice.mix * (inst.trim ?? 1) * intensity * 2.2, era, send * 0.5);
       } else if (voice.kind === 'chord') {
         // An arpeggio is one voice cycling a chord faster than the ear
         // separates it. It costs one channel and buys a chord, which is the
@@ -274,14 +285,14 @@ export function renderTrack(track, {
           renderNote(mix, {
             at: at + k * stepTime, dur: stepTime * 0.9, note: nt + octShift + 12,
             inst, gain: voice.mix * intensity, pan: voice.pan, vib: false,
-            sweep: 0, accent: false, send,
+            sweep: 0, accent: false, send, tone,
           });
         }
       } else {
         renderNote(mix, {
           at, dur: stepTime * (cell.steps - 0.06), note: cell.note + octShift,
           inst, gain: voice.mix * intensity, pan: voice.pan,
-          vib: cell.vib || cell.steps > 5, sweep: cell.sweep, accent: cell.accent, send,
+          vib: cell.vib || cell.steps > 5, sweep: cell.sweep, accent: cell.accent, send, tone,
         });
       }
     }
@@ -314,6 +325,14 @@ export function renderTrack(track, {
     mix.R[i] = hp[3].run(hp[2].run(mix.R[i]));
   }
 
+  // A master tilt: dB of high shelf at 1.2 kHz. Negative darkens, positive
+  // brightens. Applied before loudness matching so the match accounts for it.
+  if (tilt) {
+    const tl = new Biquad('highshelf', 1200, 0.707, tilt, rate);
+    const tr2 = new Biquad('highshelf', 1200, 0.707, tilt, rate);
+    for (let i = 0; i < n; i++) { mix.L[i] = tl.run(mix.L[i]); mix.R[i] = tr2.run(mix.R[i]); }
+  }
+
   // Loudness-match, then limit.
   //
   // This is not polish; without it the A/B is a lie. The 16-bit rig renders
@@ -331,7 +350,12 @@ export function renderTrack(track, {
     for (let i = 0; i < n; i++) { mix.L[i] *= gain; mix.R[i] *= gain; }
   }
 
-  const peak = limit(mix.L, mix.R);
+  // `ceiling: Infinity` leaves the mix untouched, which analysis needs: a
+  // limiter engaging during a calibration measurement means calibrating
+  // against the limiter rather than against the instrument.
+  const { peak, reducedDb } = Number.isFinite(ceiling)
+    ? limit(mix.L, mix.R, ceiling, rate)
+    : { peak: mix.L.reduce((m, v, i) => Math.max(m, Math.abs(v), Math.abs(mix.R[i])), 0), reducedDb: 0 };
   let sum = 0;
   for (let i = 0; i < n; i++) sum += mix.L[i] * mix.L[i] + mix.R[i] * mix.R[i];
   const rms = Math.sqrt(sum / (2 * n));
@@ -340,7 +364,7 @@ export function renderTrack(track, {
     L: mix.L, R: mix.R, rate, era,
     stats: {
       seconds: n / rate, bars: limitBars, steps, from, bpm: bpm || track.bpm,
-      peakDb: db(peak), rmsDb: db(rms), gainDb: db(gain), voices: used,
+      peakDb: db(peak), rmsDb: db(rms), gainDb: db(gain), limitDb: reducedDb, voices: used,
     },
   };
 }

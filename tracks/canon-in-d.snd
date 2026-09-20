@@ -17,7 +17,7 @@
   tags   classical pachelbel public-domain
 
 @section ground
-@voice bass inst=fm-bass mix=0.16
+@voice bass inst=fm-bass mix=0.105
   d2  .   .   .   .   .   .   .   d2  .   .   .   a2  .   .   .
   a2  .   .   .   .   .   .   .   a2  .   .   .   e3  .   .   .
   b2  .   .   .   .   .   .   .   b2  .   .   .   f#3 .   .   .
@@ -27,7 +27,7 @@
   g2  .   .   .   .   .   .   .   g2  .   .   .   b2  .   .   .
   a2  .   .   .   .   .   .   .   a2  .   .   .   e3  .   .   .
 
-@voice chords inst=arp mix=0.075 pan=0.12
+@voice chords inst=arp mix=0.095 pan=0.12
   d   .   .   .   .   .   .   .   d   .   .   .   .   .   .   .
   a   .   .   .   .   .   .   .   a   .   .   .   .   .   .   .
   bm  .   .   .   .   .   .   .   bm  .   .   .   .   .   .   .
@@ -38,7 +38,7 @@
   a   .   .   .   .   .   .   .   a   .   .   .   .   .   .   .
 
 @section entry
-@voice bass inst=fm-bass mix=0.16
+@voice bass inst=fm-bass mix=0.105
   d2  .   .   .   .   .   .   .   d2  .   .   .   a2  .   .   .
   a2  .   .   .   .   .   .   .   a2  .   .   .   e3  .   .   .
   b2  .   .   .   .   .   .   .   b2  .   .   .   f#3 .   .   .
@@ -48,7 +48,7 @@
   g2  .   .   .   .   .   .   .   g2  .   .   .   b2  .   .   .
   a2  .   .   .   .   .   .   .   a2  .   .   .   e3  .   .   .
 
-@voice chords inst=arp mix=0.075 pan=0.12
+@voice chords inst=arp mix=0.095 pan=0.12
   d   .   .   .   .   .   .   .   d   .   .   .   .   .   .   .
   a   .   .   .   .   .   .   .   a   .   .   .   .   .   .   .
   bm  .   .   .   .   .   .   .   bm  .   .   .   .   .   .   .
@@ -60,7 +60,7 @@
 
 # The first violin, in whole notes -- one per bar of the ground, which is the
 # canon's entire premise.
-@voice violin1 inst=strings mix=0.15 pan=-0.22
+@voice violin1 inst=strings mix=0.175 pan=-0.22
   f#5 .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
   e5  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
   d5  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
@@ -71,7 +71,7 @@
   c#5 .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
 
 @section second
-@voice bass inst=fm-bass mix=0.16
+@voice bass inst=fm-bass mix=0.105
   d2  .   .   .   .   .   .   .   d2  .   .   .   a2  .   .   .
   a2  .   .   .   .   .   .   .   a2  .   .   .   e3  .   .   .
   b2  .   .   .   .   .   .   .   b2  .   .   .   f#3 .   .   .
@@ -81,7 +81,7 @@
   g2  .   .   .   .   .   .   .   g2  .   .   .   b2  .   .   .
   a2  .   .   .   .   .   .   .   a2  .   .   .   e3  .   .   .
 
-@voice chords inst=arp mix=0.075 pan=0.12
+@voice chords inst=arp mix=0.095 pan=0.12
   d   .   .   .   .   .   .   .   d   .   .   .   .   .   .   .
   a   .   .   .   .   .   .   .   a   .   .   .   .   .   .   .
   bm  .   .   .   .   .   .   .   bm  .   .   .   .   .   .   .
@@ -91,7 +91,7 @@
   g   .   .   .   .   .   .   .   g   .   .   .   .   .   .   .
   a   .   .   .   .   .   .   .   a   .   .   .   .   .   .   .
 
-@voice violin1 inst=strings mix=0.15 pan=-0.22
+@voice violin1 inst=strings mix=0.175 pan=-0.22
   f#5 .   .   .   .   .   .   .   e5  .   .   .   .   .   .   .
   d5  .   .   .   .   .   .   .   c#5 .   .   .   .   .   .   .
   b4  .   .   .   .   .   .   .   a4  .   .   .   .   .   .   .
@@ -105,7 +105,7 @@
 # idea, and in this format it is literally the same eight lines pasted into a
 # second voice -- which is the clearest possible demonstration that a score is
 # text you can manipulate.
-@voice violin2 inst=strings mix=0.11 pan=0.28
+@voice violin2 inst=strings mix=0.135 pan=0.28
   -   -   -   -   -   -   -   -   -   -   -   -   -   -   -   -
   f#5 .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
   e5  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .

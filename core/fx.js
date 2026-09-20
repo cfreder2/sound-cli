@@ -210,7 +210,7 @@ export function renderFx(fx, era = '8bit', {
     gain = clamp((10 ** (targetPeakDb / 20)) / raw, 0.1, 20);
     for (let i = 0; i < n; i++) { L[i] *= gain; R[i] *= gain; }
   }
-  const peak = limit(L, R, 0.92);
+  const { peak } = limit(L, R, 0.92);
   return {
     L, R, rate, era,
     stats: { seconds: n / rate, peakDb: db(peak), gainDb: db(gain), layers: layers.filter((l) => l.kind !== 'echo').length },

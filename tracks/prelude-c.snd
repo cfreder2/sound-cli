@@ -17,7 +17,10 @@
 
 @note The figure is [bass] [tenor] [a b c] [a b c], twice per bar.
 
-@voice right inst=piano mix=0.17 pan=-0.08
+# tilt lifts the top of this voice by 5 dB. The figure lives between C3 and
+# E4, which is the muddiest octave in any mix, and the 16-bit piano is darker
+# than the pulse it stands in for on the other rig.
+@voice right inst=piano mix=0.17 pan=-0.08 tilt=8
   c3  e3  g3  c4  e4  g3  c4  e4   c3  e3  g3  c4  e4  g3  c4  e4
   c3  d3  a3  d4  f4  a3  d4  f4   c3  d3  a3  d4  f4  a3  d4  f4
   b2  d3  g3  d4  f4  g3  d4  f4   b2  d3  g3  d4  f4  g3  d4  f4
@@ -39,7 +42,7 @@
 # pedal to 36.7 Hz and the pad's own sub-octave layer to 18 Hz -- energy no
 # speaker reproduces, which arrives as cone noise and eats the headroom the
 # rest of the mix needs.
-@voice pedal inst=pad mix=0.055 pan=0.1
+@voice pedal inst=pad mix=0.032 lp=700 pan=0.1
   c3  .   .   .   .   .   .   .    .   .   .   .   .   .   .   .
   c3  .   .   .   .   .   .   .    .   .   .   .   .   .   .   .
   b2  .   .   .   .   .   .   .    .   .   .   .   .   .   .   .

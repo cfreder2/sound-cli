@@ -80,7 +80,8 @@ See [FORMAT.md](FORMAT.md).
 
 ## What ships
 
-**Tracks** — five public-domain classical pieces and two originals.
+**Tracks** — five public-domain classical pieces, three imported from the games,
+and two originals.
 
 | | |
 | --- | --- |
@@ -89,13 +90,50 @@ See [FORMAT.md](FORMAT.md).
 | `ode-to-joy` | Beethoven, Symphony 9. Almost all melody and no rhythm, so the A/B is purely timbre |
 | `greensleeves` | Traditional, c. 1580. 6/8, both strains |
 | `canon-in-d` | Pachelbel. The ground bass, the violin entry, and the canon at one statement's distance — the file to read for what `@section` and `@order` buy |
+| `scramble` | **From [VECTRENCH](https://github.com/cfreder2/VECTRENCH)** — its training-canyon theme. Nineteen order slots over nine sections: two minutes from seventy bars, and no four bars repeat unchanged |
+| `void` | **From [VECTRENCH](https://github.com/cfreder2/VECTRENCH)** — deep space. Its opposite: 96 BPM, no arpeggio at all, harmony from held tritone dyads, a pedal bass that shudders rather than walks |
+| `overworld` | **From [AXI](https://github.com/cfreder2/axi)** — its field theme. Did not exist as a score; AXI keeps it as raw MIDI arrays and builds the bass at runtime, so this is that music written out |
 | `runner` | Original stage theme, native 8-bit. Sections, fills, sweeps, an arrangement |
 | `layers` | **A teaching track.** Four bars, six times, one more voice each pass |
 
-**Effects** — 20, each defined in both eras in the same file:
-`splash` `laser` `machinegun` `metal` `wood` `explosion` `jump` `coin`
-`powerup` `hurt` `death` `blip` `select` `footstep` `slash` `glass` `door`
-`engine` `heal` `thunder`.
+**Effects** — 72, each defined in both eras in the same file.
+
+| | |
+| --- | --- |
+| water | `splash` `splash-small` `splash-big` `drip` `drips` `bubble` `bubbles` `underwater` `pour` `wave` `swim` `thud-wet` |
+| impact | `thud` `thud-heavy` `metal` `wood` `glass` `land` `stomp` |
+| weapons | `laser` `machinegun` `shotgun` `reload` `ricochet` `shell` `rocket` `explosion` |
+| fighting | `punch` `block` `slash` `ko` |
+| platformer | `jump` `bounce` `dash` `coin` `checkpoint` `footstep` |
+| rpg / magic | `levelup` `spell` `sparkle` `chest` `potion` `heal` `powerup` |
+| horror | `heartbeat` `stinger` `creak` `thunder` |
+| sci-fi | `teleport` `forcefield` `scan` `powerdown` `robot` `warp` |
+| racing | `engine` `skid` `gearshift` `countdown` |
+| puzzle / ui | `blip` `select` `pop` `correct` `wrong` `notify` |
+| strategy | `build` |
+| arcade | `gameover` `extralife` `hurt` `death` |
+| ambience | `fire` `wind` `door` |
+
+## Levels, and why `mix=` means something
+
+Every instrument carries a `trim`: a calibration that brings it to a common
+K-weighted loudness. Without it the library had a **21.5 dB spread** — a 50%
+pulse was twelve decibels louder than a pluck for identical settings — so a
+score's balance was an accident of which synthesis method each voice happened
+to use, and it *changed when the era changed*. That is why 16-bit renders came
+out bass-heavy while 8-bit ones did not: the chord voice was simply vanishing.
+
+```sh
+node tools/calibrate.mjs --check    # nonzero exit if any instrument drifted
+```
+
+Run it after changing any instrument's layers.
+
+Scores get tone controls of their own — `lp=`, `hp=` and `tilt=` per voice —
+for the case where a part is right but sits wrong. Dropping `mix` there just
+makes the part quiet instead of making it fit. `sound render --tilt N` does the
+same to a whole mix, and the previewer has BASS and TREBLE for auditioning
+without changing anything on disk.
 
 ## Eras are not bit depth
 

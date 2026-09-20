@@ -126,7 +126,11 @@ const VERBS = {
         console.log(`  ${n.padEnd(16)} ${String(t.totalBars).padStart(3)} bars  ${t.seconds.toFixed(1).padStart(6)}s  ${t.voices.length} voices`);
       }
     }
-    for (const n of select(positional.slice(1), listFx()).filter(() => !positional[1] || has('all'))) {
+    // Effects are only checked when the call was not aimed at named tracks --
+    // `sound check scramble` should not fail because 'scramble' is not an
+    // effect, which is what the previous version did.
+    const fxNames = (!positional[1] || has('all')) ? listFx() : [];
+    for (const n of fxNames) {
       const { errors } = parseFx(readFileSync(join(FX, `${n}.fx`), 'utf8'), `${n}.fx`);
       problems.push(...errors);
     }
@@ -134,7 +138,7 @@ const VERBS = {
       console.error(`\n${problems.length} problem(s):\n- ${problems.join('\n- ')}`);
       process.exit(1);
     }
-    console.log(`\n${names.length} track(s) and ${listFx().length} effect(s) pass.`);
+    console.log(`\n${names.length} track(s)${fxNames.length ? ` and ${fxNames.length} effect(s)` : ''} pass.`);
   },
 
   async render() {
@@ -157,7 +161,9 @@ const VERBS = {
         const subs = out.stats.voices.filter((v) => v.substituted);
         console.log(`  ${file.padEnd(28)} ${out.stats.seconds.toFixed(1).padStart(6)}s  `
           + `peak ${out.stats.peakDb.toFixed(1).padStart(6)} dBFS  RMS ${out.stats.rmsDb.toFixed(1).padStart(6)} dBFS  `
-          + `${(bytes / 1024 / 1024).toFixed(1)}MB${subs.length ? `  [${subs.map((s) => `${s.from}->${s.inst}`).join(' ')}]` : ''}`);
+          + `${(bytes / 1024 / 1024).toFixed(1)}MB`
+          + `${out.stats.limitDb < -0.1 ? `  limited ${out.stats.limitDb.toFixed(1)}dB` : ''}`
+          + `${subs.length ? `  [${subs.map((s) => `${s.from}->${s.inst}`).join(' ')}]` : ''}`);
         report.push({ track: n, era, file, ...out.stats });
       }
     }
