@@ -13,7 +13,7 @@ import { renderTrack } from '../core/render.js';
 import { parseFx, renderFx, explainFx } from '../core/fx.js';
 import { encodeWav, encodeMp3 } from '../core/wav.js';
 import { INSTRUMENTS, listInstruments, instrumentFor } from '../core/instruments.js';
-import { serve } from './serve.js';
+import { serve, buildManifest } from './serve.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const TRACKS = join(ROOT, 'tracks');
@@ -282,6 +282,35 @@ const VERBS = {
     serve({ root: ROOT, port: Number(flag('port', 7171)), open: !has('no-open') });
   },
 
+  /**
+   * Write the previewer as a self-contained static site.
+   *
+   * No server, no build tooling, no dependencies: index.html, the worker, the
+   * same core/ modules the CLI imports, and one JSON of every score and effect
+   * as text. Drop the folder on GitHub Pages and it works, because the tab
+   * does the synthesis.
+   */
+  build() {
+    const dir = resolve(positional[1] || flag('out', join(ROOT, 'site')));
+    mkdirSync(join(dir, 'core'), { recursive: true });
+    const files = ['index.html', 'render-worker.js'];
+    for (const f of files) writeFileSync(join(dir, f), readFileSync(join(ROOT, 'ui', f)));
+    for (const f of readdirSync(join(ROOT, 'core')).filter((x) => x.endsWith('.js'))) {
+      writeFileSync(join(dir, 'core', f), readFileSync(join(ROOT, 'core', f)));
+    }
+    const manifest = JSON.stringify(buildManifest(ROOT));
+    writeFileSync(join(dir, 'data.json'), manifest);
+    let bytes = 0;
+    for (const f of [...files.map((x) => join(dir, x)), join(dir, 'data.json')]) {
+      bytes += readFileSync(f).length;
+    }
+    for (const f of readdirSync(join(dir, 'core'))) bytes += readFileSync(join(dir, 'core', f)).length;
+    console.log(`  index.html, render-worker.js, core/ (${readdirSync(join(dir, 'core')).length} modules), data.json`);
+    console.log(`  ${(bytes / 1024).toFixed(0)} KB total, no dependencies, no server.`);
+    console.log(`\nWrote ${dir}`);
+    console.log('Serve that folder anywhere -- GitHub Pages, S3, `python3 -m http.server`.');
+  },
+
   help() {
     console.log(`sound -- music and sound effects for games
 
@@ -298,6 +327,7 @@ const VERBS = {
   sound instruments [--era 16bit]   what is available
   sound explain <instrument>        its layers, spelled out
   sound view [--port 7171]          the side-by-side preview in a browser
+  sound build [dir]                 write that preview as a static site
 
 A track is tracks/<name>.snd -- plain text, one bar per line, one column per
 step. An effect is fx/<name>.fx -- one layer per line. Both are meant to be

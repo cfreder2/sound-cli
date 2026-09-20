@@ -44,11 +44,18 @@ notice. That is the bug this library exists to delete.
 ## Status against this spec
 
 Built and tested: `ls`/`status`, `check`, `play`, `render`, `fx`
-(`list`/`play`/`render`/`explain`), `instruments`, `explain`, `view`.
+(`list`/`play`/`render`/`explain`), `instruments`, `explain`, `view`, `build`.
 See [README.md](README.md).
 
-Not built: `init`, `new`, `import`, `prompt`, `compose`, `record`, `audit`,
-`runtime`.
+Not built: `init`, `new`, `import`, `prompt`, `compose`, `record`, `audit`.
+
+**`runtime` turned out to be unnecessary.** The spec assumed the games would
+need a generated, vendored copy of the player. They do not: `core/` has no Node
+dependencies at all -- `dsp`, `score`, `instruments`, `render` and `fx` never
+had any, and `wav` was made isomorphic by writing through a DataView instead of
+a Buffer. A game imports `core/` directly as vanilla ESM, which is what the
+`runtime` verb was going to produce anyway. `sound build` emits the previewer
+as a static site by copying those same files.
 
 Two decisions changed in the building, and this document now reflects them.
 **Tracks are `.snd`, not YAML** -- a bar has to be one line with the steps in

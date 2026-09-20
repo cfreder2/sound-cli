@@ -1,30 +1,39 @@
-// `sound view`: a static server for the preview page, plus one endpoint that
-// renders a track or effect on demand and streams back a WAV.
+// `sound view`: a static file server, and nothing else.
 //
-// The page does not contain a synth. It asks this server for audio, which
-// calls the same core/render.js the CLI calls -- so what you A/B in the
-// browser is byte-identical to what `sound render` writes to disk. That is the
-// entire reason the preview is trustworthy.
+// It used to render audio and stream progress back. It does not any more --
+// the browser renders, using the same core/ the CLI uses. That removes the
+// server from the critical path entirely, which is what makes the previewer
+// hostable on GitHub Pages: `sound build` writes the same files this serves,
+// and a static host is all either of them needs.
 
 import { createServer } from 'node:http';
-import { readFileSync, readdirSync } from 'node:fs';
-import { join, extname } from 'node:path';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { join, extname, normalize } from 'node:path';
 import { spawn } from 'node:child_process';
 
-import { loadScore, parseScore, expand } from '../core/score.js';
-import { renderTrack } from '../core/render.js';
-import { parseFx, renderFx, explainFx } from '../core/fx.js';
-import { encodeWav } from '../core/wav.js';
+import { parseScore, expand } from '../core/score.js';
+import { parseFx, explainFx } from '../core/fx.js';
 import { INSTRUMENTS, listInstruments, SUBSTITUTE } from '../core/instruments.js';
 
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css' };
+const TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+};
 
-export function serve({ root, port = 7171, open = true }) {
+/**
+ * Everything the page needs, in one object: the scores and effects as TEXT.
+ *
+ * The sources ship rather than rendered audio, because the whole library is
+ * 360 KB of text and one two-minute render is 20 MB of WAV. Shipping the text
+ * and synthesising in the tab is two orders of magnitude smaller, and it is
+ * also the only version where changing a note means changing a file.
+ */
+export function buildManifest(root) {
   const TRACKS = join(root, 'tracks');
   const FX = join(root, 'fx');
-  const cache = new Map();
-
-  const manifest = () => ({
+  return {
     tracks: readdirSync(TRACKS).filter((f) => f.endsWith('.snd')).map((f) => {
       const id = f.replace(/\.snd$/, '');
       const text = readFileSync(join(TRACKS, f), 'utf8');
@@ -50,71 +59,37 @@ export function serve({ root, port = 7171, open = true }) {
     }),
     instruments: listInstruments().map((i) => ({ ...i, detail: INSTRUMENTS[i.name] })),
     substituteTable: SUBSTITUTE,
-  });
+  };
+}
 
+export function serve({ root, port = 7171, open = true }) {
   const server = createServer((req, res) => {
     const url = new URL(req.url, `http://localhost:${port}`);
     const send = (code, type, body) => {
       res.writeHead(code, { 'content-type': type, 'cache-control': 'no-store' });
       res.end(body);
     };
-
     try {
-      if (url.pathname === '/api/manifest') {
-        return send(200, 'application/json', JSON.stringify(manifest()));
+      if (url.pathname === '/data.json') {
+        return send(200, TYPES['.json'], JSON.stringify(buildManifest(root)));
       }
-
-      if (url.pathname === '/api/audio') {
-        const kind = url.searchParams.get('kind') || 'track';
-        const id = url.searchParams.get('id');
-        const era = url.searchParams.get('era') || '8bit';
-        const extra = ['bars', 'from', 'seed', 'layers', 'solo', 'voice'].map((k) => url.searchParams.get(k) ?? '').join(',');
-        const key = `${kind}:${id}:${era}:${extra}`;
-        if (cache.has(key)) return send(200, 'audio/wav', cache.get(key));
-
-        let out;
-        if (kind === 'fx') {
-          const { fx } = parseFx(readFileSync(join(FX, `${id}.fx`), 'utf8'), id);
-          const nL = url.searchParams.get('layers');
-          const solo = url.searchParams.get('solo');
-          out = renderFx(fx, era, {
-            vary: url.searchParams.has('seed'),
-            seed: Number(url.searchParams.get('seed') || 1),
-            maxLayers: nL === null ? null : Number(nL),
-            soloLayer: solo === null ? null : Number(solo),
-          });
-        } else {
-          let t = loadScore(readFileSync(join(TRACKS, `${id}.snd`), 'utf8'), id);
-          const bars = url.searchParams.get('bars');
-          const voice = url.searchParams.get('voice');
-          // Soloing a voice must NOT re-normalise, or every lane comes back at
-          // the same loudness and the visualiser lies about the mix: a pad at
-          // 0.055 would look and sound exactly as present as a lead at 0.20.
-          if (voice) t = { ...t, voices: t.voices.filter((v) => v.id === voice) };
-          out = renderTrack(t, {
-            era, bars: bars ? Number(bars) : null,
-            from: Number(url.searchParams.get('from') || 0),
-            normalize: !voice,
-          });
-        }
-        const wav = encodeWav(out.L, out.R, out.rate, 16);
-        if (cache.size > 60) cache.clear();
-        cache.set(key, wav);
-        return send(200, 'audio/wav', wav);
-      }
-
-      const file = url.pathname === '/' ? '/index.html' : url.pathname;
-      const path = join(root, 'ui', file);
-      if (!path.startsWith(join(root, 'ui'))) return send(403, 'text/plain', 'no');
+      // Two roots: the page and its worker come from ui/, core/ is served as
+      // itself so the worker's imports resolve the same way they will on a
+      // static host.
+      const rel = normalize(url.pathname === '/' ? 'index.html' : url.pathname.slice(1));
+      if (rel.startsWith('..')) return send(403, 'text/plain', 'no');
+      const path = rel.startsWith('core/') ? join(root, rel) : join(root, 'ui', rel);
+      if (!existsSync(path)) return send(404, 'text/plain', `not found: ${rel}`);
       return send(200, TYPES[extname(path)] || 'application/octet-stream', readFileSync(path));
     } catch (e) {
-      return send(e.code === 'ENOENT' ? 404 : 500, 'text/plain', e.message);
+      return send(500, 'text/plain', e.message);
     }
   });
 
   server.listen(port, () => {
     const at = `http://localhost:${port}`;
     console.log(`sound view -- ${at}`);
+    console.log('  The browser does the rendering; this only serves files.');
     console.log('  Ctrl-C to stop.');
     if (open && process.platform === 'darwin') spawn('open', [at], { stdio: 'ignore' });
   });

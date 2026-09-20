@@ -232,56 +232,119 @@ function audio() {
   return ctx;
 }
 
-// --- loading ---------------------------------------------------------------
+// --- rendering, in this tab -------------------------------------------------
 //
-// Rendering happens on the server and a long track in two eras is a real wait,
-// so every fetch is counted and the bar at the top of the window reflects how
-// many are still out. Silence during a two-second render reads as breakage.
+// No server. The page loads the scores as TEXT and synthesises them here,
+// using the same core/ modules the CLI imports -- so what you hear is what
+// `sound render` writes, and the whole thing hosts on any static file server.
+//
+// A small pool of module workers does the work: rendering is CPU-bound and
+// synchronous, so on the main thread it would freeze the page for the whole
+// render AND make the two eras of an A/B queue behind each other.
 
-let inflight = 0, done = 0;
-function progress() {
-  const bar = $('#load');
-  if (!inflight) {
-    bar.style.width = '100%';
-    bar.classList.remove('on');
-    setTimeout(() => { if (!inflight) bar.style.width = '0'; }, 320);
-    done = 0;
+const POOL_SIZE = Math.max(2, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
+const pool = [];
+const queue = [];
+const pending = new Map();
+let jobSeq = 0;
+
+function pump() {
+  while (queue.length) {
+    const slot = pool.find((x) => !x.busy) || (pool.length < POOL_SIZE ? spawn() : null);
+    if (!slot) return;
+    const task = queue.shift();
+    slot.busy = true;
+    task.slot = slot;
+    pending.set(task.job, task);
+    slot.w.postMessage({ job: task.job, kind: task.kind, text: task.text, id: task.id, opts: task.opts });
+  }
+}
+
+function spawn() {
+  const w = new Worker('render-worker.js', { type: 'module' });
+  const slot = { w, busy: false };
+  w.onmessage = (ev) => {
+    const m = ev.data;
+    const task = pending.get(m.job);
+    if (!task) return;
+    if (m.type === 'progress') { task.onProgress?.(m.frac); return; }
+    pending.delete(m.job);
+    task.slot.busy = false;
+    pump();
+    if (m.type === 'error') task.reject(new Error(m.message));
+    else task.resolve(m.wav);
+  };
+  w.onerror = (e) => {
+    for (const [id, t] of pending) if (t.slot === slot) { pending.delete(id); t.reject(new Error(e.message)); }
+    slot.busy = false;
+  };
+  pool.push(slot);
+  return slot;
+}
+
+const runRender = (kind, text, id, opts, onProgress) => new Promise((resolve, reject) => {
+  queue.push({ job: ++jobSeq, kind, text, id, opts, onProgress, resolve, reject });
+  pump();
+});
+
+// --- the bar ----------------------------------------------------------------
+//
+// It is REAL: the renderer reports how far through it is and this draws that.
+// A cost model built from note counts was tried first and came out 45% off in
+// the median case, because vibrato makes a held note several times costlier
+// per sample than a short one and counting notes cannot see that.
+
+function setBar(frac, done) {
+  const b = $('#load');
+  if (done) {
+    b.style.width = '100%';
+    b.classList.remove('on');
+    setTimeout(() => { if (!b.classList.contains('on')) b.style.width = '0'; }, 300);
     return;
   }
-  bar.classList.add('on');
-  bar.style.width = `${Math.round((done / (done + inflight)) * 88) + 6}%`;
+  b.classList.add('on');
+  b.style.width = `${Math.max(2, Math.round(frac * 100))}%`;
 }
-async function tracked(p) {
-  inflight += 1; progress();
-  try { return await p; }
-  finally { inflight -= 1; done += 1; progress(); }
-}
+
+const sourceOf = (kind, id) => (kind === 'fx'
+  ? manifest.fx.find((x) => x.id === id)
+  : manifest.tracks.find((x) => x.id === id))?.source;
+
+const toOpts = (kind, p) => (kind === 'fx'
+  ? {
+    vary: p.seed !== undefined,
+    seed: Number(p.seed ?? 1),
+    maxLayers: p.layers === undefined ? null : Number(p.layers),
+    soloLayer: p.solo === undefined ? null : Number(p.solo),
+  }
+  : {
+    voice: p.voice ?? null,
+    from: Number(p.from ?? 0),
+    bars: p.bars === undefined ? null : Number(p.bars),
+  });
 
 const cache = new Map();
-async function buffers(kind, id, params = {}) {
+async function buffers(kind, id, params = {}, onProgress = null) {
   const key = `${kind}:${id}:${JSON.stringify(params)}`;
   if (cache.has(key)) return cache.get(key);
-  const p = tracked(Promise.all(ERAS.map(async (e) => {
-    const q = new URLSearchParams({ kind, id, era: e, ...params });
-    const r = await fetch(`/api/audio?${q}`);
-    if (!r.ok) throw new Error(await r.text());
-    return audio().decodeAudioData(await r.arrayBuffer());
-  })));
+
+  const text = sourceOf(kind, id);
+  const base = toOpts(kind, params);
+  const parts = ERAS.map(() => 0);
+  const report = () => {
+    const f = parts.reduce((x, y) => x + y, 0) / parts.length;
+    setBar(f);
+    onProgress?.(f);
+  };
+
+  const p = Promise.all(ERAS.map(async (era, i) => {
+    const ab = await runRender(kind, text, id, { ...base, era }, (f) => { parts[i] = f; report(); });
+    return audio().decodeAudioData(ab);
+  })).then((r) => { setBar(1, true); onProgress?.(1); return r; },
+    (e) => { setBar(1, true); onProgress?.(1); throw e; });
+
   cache.set(key, p);
   return p;
-}
-
-/** Where the playhead is, in buffer seconds. Survives pause and speed changes. */
-function position() {
-  if (!now || paused) return pausedAt;
-  const p = now.startOffset + (ctx.currentTime - now.startedAt) * speed;
-  return looping && now.dur ? p % now.dur : Math.min(p, now.dur);
-}
-
-function killSources() {
-  if (!now) return;
-  for (const st of now.stems) for (const s of st.sources) { try { s.onended = null; s.stop(); } catch {} }
-  now.stems = [];
 }
 
 function stop() {
@@ -736,11 +799,13 @@ function fxCard(f) {
     if (!insp.open || built) return;
     built = true;
     const wait = el('div', 'loading');
-    wait.append(el('div', 'spin'), el('span', null, `rendering ${nL} layers`));
+    const lab = el('span', null, `${nL} layers \u00b7 0/${nL}`);
+    wait.append(el('div', 'spin'), lab);
     ibox.append(wait);
     const lanes = el('div', 'lanes');
     for (let i = 0; i < nL; i++) {
       const bufs = await buffers('fx', f.id, { solo: String(i) });
+      lab.textContent = `${nL} layers \u00b7 ${i + 1}/${nL}`;
       const row = el('div', 'lane');
       const label = (f.eras[era] || f.eras['8bit'] || [])[i] || '';
       const kind = (label.match(/\b(tone|noise)\b/) || [, '?'])[1];
@@ -870,7 +935,7 @@ addEventListener('keydown', (e) => {
   else if (e.key === 'ArrowLeft') $('#bback')?.click();
 });
 
-const r = await fetch('/api/manifest');
+const r = await fetch('data.json');
 manifest = await r.json();
 // The substitution table lives in core/instruments.js and rides along in the
 // manifest, so the page never has to guess what a voice becomes on the other rig.

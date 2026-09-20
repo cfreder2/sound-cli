@@ -224,21 +224,41 @@ test('pan is equal power', () => {
   }
 });
 
+const ascii = (u8, a, b) => String.fromCharCode(...u8.subarray(a, b));
+const view = (u8) => new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+
+test('encodeWav returns a plain Uint8Array, not a Node Buffer', () => {
+  // The whole point: the same renderer has to write a file from the CLI and
+  // fill an AudioBuffer in a browser tab, so nothing here may be Node-only.
+  const b = encodeWav(new Float32Array(4), new Float32Array(4), 44100, 16);
+  assert.ok(b instanceof Uint8Array);
+  assert.equal(typeof globalThis.Buffer === 'undefined' || !(b instanceof globalThis.Buffer), true,
+    'must not depend on Buffer');
+});
+
 test('wav headers are right for every depth', () => {
   const L = new Float32Array(100).fill(0.5), R = new Float32Array(100).fill(-0.5);
   for (const [depth, fmt, bytes] of [[16, 1, 2], [24, 1, 3], [32, 3, 4]]) {
     const b = encodeWav(L, R, 44100, depth);
-    assert.equal(b.toString('ascii', 0, 4), 'RIFF');
-    assert.equal(b.toString('ascii', 8, 12), 'WAVE');
-    assert.equal(b.readUInt16LE(20), fmt, `format tag at ${depth}`);
-    assert.equal(b.readUInt16LE(34), depth);
-    assert.equal(b.readUInt32LE(40), 100 * 2 * bytes, `data size at ${depth}`);
+    const dv = view(b);
+    assert.equal(ascii(b, 0, 4), 'RIFF');
+    assert.equal(ascii(b, 8, 12), 'WAVE');
+    assert.equal(dv.getUint16(20, true), fmt, `format tag at ${depth}`);
+    assert.equal(dv.getUint16(34, true), depth);
+    assert.equal(dv.getUint32(40, true), 100 * 2 * bytes, `data size at ${depth}`);
     assert.equal(b.length, 44 + 100 * 2 * bytes);
   }
 });
 
 test('samples are clamped, not wrapped', () => {
   const b = encodeWav(new Float32Array([4]), new Float32Array([-4]), 44100, 16);
-  assert.equal(b.readInt16LE(44), 32767);
-  assert.equal(b.readInt16LE(46), -32767);
+  const dv = view(b);
+  assert.equal(dv.getInt16(44, true), 32767);
+  assert.equal(dv.getInt16(46, true), -32767);
+});
+
+test('24-bit samples are little-endian three-byte words', () => {
+  const b = encodeWav(new Float32Array([0.5]), new Float32Array([-0.5]), 44100, 24);
+  const val = b[44] | (b[45] << 8) | (b[46] << 16);
+  assert.equal(val, Math.round(0.5 * 8388607));
 });

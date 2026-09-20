@@ -47,9 +47,23 @@ normalised, so a quiet pad looks quiet — which is the thing worth seeing. The
 window steps through the track in bars, so you can watch Canon's second violin
 enter at bar 17. Effects have the same thing under *inspect layers*.
 
-The page contains no synth. It asks the server for audio, which calls the same
-`core/render.js` the CLI calls, so what you A/B in the browser is byte-identical
-to what `sound render` writes to disk.
+**There is no server.** The page loads the scores as text and synthesises them
+in the tab, using the same `core/` modules the CLI imports — verified
+byte-identical, 0 differing bytes across a 16 MB render. `sound view` only
+serves files, and `sound build` writes the same thing as a static folder:
+
+```sh
+sound build                # -> site/  (293 KB, no dependencies)
+```
+
+Drop `site/` on GitHub Pages, S3 or `python3 -m http.server` and it works.
+Rendering happens in a small pool of module workers, so the page never freezes
+and both eras of an A/B render at once.
+
+Progress is real, not estimated. The renderer reports how far through it is and
+the bar draws that. A cost model built from note counts was tried first and came
+out 45% off in the median case, because vibrato makes a held note several times
+costlier per sample than a short one and counting notes cannot see that.
 
 ## The format
 
