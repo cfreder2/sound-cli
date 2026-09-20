@@ -227,15 +227,21 @@ function renderDrum(mix, at, hit, gain, era, send) {
  */
 export function renderTrack(track, {
   era = track.era, rate = RATE, intensity = 1, bars = null, tail = TAIL,
-  targetRmsDb = -18, normalize = true, bpm = null,
+  targetRmsDb = -18, normalize = true, bpm = null, from = 0,
 } = {}) {
   // Overriding the tempo here re-sequences the score, so the notes keep their
   // pitch. The preview page's speed slider resamples instead, which is instant
   // but drags pitch along with it -- two different questions, two different
   // controls, and the difference is worth knowing.
   const stepTime = 60 / (bpm || track.bpm) / 4;
-  const limitBars = bars ?? track.totalBars;
-  const steps = Math.min(track.steps, limitBars * track.beats);
+  // A window, not a prefix. `from` is a bar index and `bars` a count from it,
+  // so a layer view can jump to where a voice actually enters -- which for
+  // Canon's second violin is bar 17, and a prefix render would have meant
+  // rendering the whole piece to see it.
+  const firstStep = Math.max(0, (from | 0) * track.beats);
+  const lastStep = Math.min(track.steps, firstStep + (bars ?? track.totalBars) * track.beats);
+  const steps = Math.max(0, lastStep - firstStep);
+  const limitBars = steps / track.beats;
   const seconds = steps * stepTime + tail;
   const n = Math.ceil(seconds * rate);
   const mix = { L: new Float32Array(n), R: new Float32Array(n), S: new Float32Array(n) };
@@ -247,13 +253,13 @@ export function renderTrack(track, {
     const send = era === '16bit' ? (voice.echo || 0.12) : 0;
     const octShift = (voice.oct || 0) * 12;
 
-    for (let i = 0; i < steps; i++) {
+    for (let i = firstStep; i < lastStep; i++) {
       const cell = voice.bars[Math.floor(i / track.beats)]?.[i % track.beats];
       if (!cell) continue;
       // Swing pushes every offbeat sixteenth late by a fraction of a step. At
       // 0 it is a grid; at 0.2 it is a shuffle.
       const swing = (i % 2 === 1) ? track.swing * stepTime * 0.5 : 0;
-      const at = i * stepTime + swing;
+      const at = (i - firstStep) * stepTime + swing;
 
       if (voice.kind === 'drum') {
         renderDrum(mix, at, cell.hit, voice.mix * intensity * 2.2, era, send * 0.5);
@@ -291,6 +297,23 @@ export function renderTrack(track, {
     }
   }
 
+  // A master high-pass at 40 Hz, 24 dB/oct.
+  //
+  // Standard practice and not optional for game audio: nothing below roughly
+  // 40 Hz survives a laptop, phone, tablet or TV speaker, so any energy down
+  // there is inaudible AND expensive -- it drives the limiter, which pulls
+  // everything audible down to make room for it. Cutting it makes the mix
+  // louder and cleaner at once. It also stops any future instrument from
+  // reintroducing the bug that put 45% of Canon's bass below 45 Hz.
+  const hp = [
+    new Biquad('highpass', 40, 0.541, 0, rate), new Biquad('highpass', 40, 1.307, 0, rate),
+    new Biquad('highpass', 40, 0.541, 0, rate), new Biquad('highpass', 40, 1.307, 0, rate),
+  ];
+  for (let i = 0; i < n; i++) {
+    mix.L[i] = hp[1].run(hp[0].run(mix.L[i]));
+    mix.R[i] = hp[3].run(hp[2].run(mix.R[i]));
+  }
+
   // Loudness-match, then limit.
   //
   // This is not polish; without it the A/B is a lie. The 16-bit rig renders
@@ -316,7 +339,7 @@ export function renderTrack(track, {
   return {
     L: mix.L, R: mix.R, rate, era,
     stats: {
-      seconds: n / rate, bars: limitBars, steps, bpm: bpm || track.bpm,
+      seconds: n / rate, bars: limitBars, steps, from, bpm: bpm || track.bpm,
       peakDb: db(peak), rmsDb: db(rms), gainDb: db(gain), voices: used,
     },
   };

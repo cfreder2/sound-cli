@@ -35,7 +35,11 @@
 # The pedal note under it. Bach does not write this; a chip arrangement wants
 # it, because a piano's sustain does the job of holding the harmony and a
 # 16-voice synth has no pedal.
-@voice pedal inst=pad mix=0.055 oct=-1 pan=0.1
+# Written at pitch, NOT an octave down. `oct=-1` here dropped the D bar's
+# pedal to 36.7 Hz and the pad's own sub-octave layer to 18 Hz -- energy no
+# speaker reproduces, which arrives as cone noise and eats the headroom the
+# rest of the mix needs.
+@voice pedal inst=pad mix=0.055 pan=0.1
   c3  .   .   .   .   .   .   .    .   .   .   .   .   .   .   .
   c3  .   .   .   .   .   .   .    .   .   .   .   .   .   .   .
   b2  .   .   .   .   .   .   .    .   .   .   .   .   .   .   .

@@ -68,7 +68,7 @@ export function serve({ root, port = 7171, open = true }) {
         const kind = url.searchParams.get('kind') || 'track';
         const id = url.searchParams.get('id');
         const era = url.searchParams.get('era') || '8bit';
-        const extra = ['bars', 'seed', 'layers', 'solo'].map((k) => url.searchParams.get(k) ?? '').join(',');
+        const extra = ['bars', 'from', 'seed', 'layers', 'solo', 'voice'].map((k) => url.searchParams.get(k) ?? '').join(',');
         const key = `${kind}:${id}:${era}:${extra}`;
         if (cache.has(key)) return send(200, 'audio/wav', cache.get(key));
 
@@ -84,9 +84,18 @@ export function serve({ root, port = 7171, open = true }) {
             soloLayer: solo === null ? null : Number(solo),
           });
         } else {
-          const t = loadScore(readFileSync(join(TRACKS, `${id}.snd`), 'utf8'), id);
+          let t = loadScore(readFileSync(join(TRACKS, `${id}.snd`), 'utf8'), id);
           const bars = url.searchParams.get('bars');
-          out = renderTrack(t, { era, bars: bars ? Number(bars) : null });
+          const voice = url.searchParams.get('voice');
+          // Soloing a voice must NOT re-normalise, or every lane comes back at
+          // the same loudness and the visualiser lies about the mix: a pad at
+          // 0.055 would look and sound exactly as present as a lead at 0.20.
+          if (voice) t = { ...t, voices: t.voices.filter((v) => v.id === voice) };
+          out = renderTrack(t, {
+            era, bars: bars ? Number(bars) : null,
+            from: Number(url.searchParams.get('from') || 0),
+            normalize: !voice,
+          });
         }
         const wav = encodeWav(out.L, out.R, out.rate, 16);
         if (cache.size > 60) cache.clear();

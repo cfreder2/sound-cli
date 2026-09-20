@@ -51,7 +51,13 @@ sound explain strings
 sound fx explain splash     # an effect's layers, line by line
 ```
 
-In `sound view`, the numbered strip under each effect is the stack. Click **3**
+In `sound view`, **SHOW LAYERS** on a track puts every voice on its own lane
+with a waveform, mute and solo, at its real level in the mix. That is the
+fastest way to answer "what is this voice actually contributing" — solo it, then
+mute it and listen to the hole it leaves. The second question is usually the
+more informative one.
+
+The numbered strip under each effect is the stack. Click **3**
 to hear layers 1 through 3; shift-click **3** to hear layer 3 alone, at the
 level it actually sits at in the mix — not boosted, because how much a layer
 contributes is the thing you are trying to find out.
@@ -67,7 +73,31 @@ contributes is the thing you are trying to find out.
 | flat, synthetic, static | width | a second copy at ±5–9 cents, or a delayed one |
 | harsh, fatiguing | nothing — too much | a `cut` low-pass, or drop a high layer's gain |
 | muddy in a full mix | nothing — collision | move a layer an octave, or pan the two apart |
+| scratchy, farty, rattling on small speakers | nothing — **subsonic** | see below |
 | like a machine gun of clones | variation | `@vary pitch=0.06 gain=0.06` |
+
+## The sub-bass trap
+
+A sine an octave under the fundamental is a good way to add weight, and a
+terrible one the moment the part is already written low. `fm-bass` shipped with
+a `semi: -12` layer; under Canon in D's D2 bass that lands on **36.7 Hz**, and
+45% of the bass voice's energy ended up below 45 Hz.
+
+Nothing reproduces that. Laptop, phone, tablet and TV speakers all roll off
+somewhere above it, so what you hear is not a low note — it is cone excursion,
+which reads as a scratch or a rattle. It is expensive too: the limiter pulls the
+whole audible mix down to make room for a note nobody can hear.
+
+Two defences, both now in place:
+
+- **A master high-pass at 40 Hz, 24 dB/oct**, in `renderTrack`. Standard game-audio
+  practice. It makes the mix louder and cleaner at once.
+- **Don't write one.** `oct=-1` on a voice already in octave 2 is the usual way
+  it happens. `greensleeves` and `prelude-c` both had it, and both dropped notes
+  to 36–41 Hz.
+
+To check a track: render it and measure the energy below 45 Hz relative to the
+whole mix. Under about −25 dB is fine.
 
 ## Material: what actually distinguishes metal from wood
 

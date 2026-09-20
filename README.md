@@ -39,6 +39,12 @@ Every render is loudness-matched first — tracks to −18 dBFS RMS, effects to
 score, and the louder of two takes always wins a blind comparison. What you
 hear between the buttons is timbre and nothing else.
 
+**SHOW LAYERS** renders each voice on its own and stacks them as lanes with
+mute and solo. Lanes are drawn at their true level in the mix and are *not*
+normalised, so a quiet pad looks quiet — which is the thing worth seeing. The
+window steps through the track in bars, so you can watch Canon's second violin
+enter at bar 17. Effects have the same thing under *inspect layers*.
+
 The page contains no synth. It asks the server for audio, which calls the same
 `core/render.js` the CLI calls, so what you A/B in the browser is byte-identical
 to what `sound render` writes to disk.

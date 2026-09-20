@@ -120,6 +120,41 @@
   .layers button:hover{color:var(--fg);border-color:var(--b)}
   .hint{color:var(--dimmer);font-size:11px;margin-top:7px}
 
+  /* loading */
+  #load{position:fixed;left:0;top:0;height:2px;width:0;z-index:99;background:var(--b);
+    box-shadow:0 0 8px var(--b);transition:width .25s ease,opacity .3s;opacity:0}
+  #load.on{opacity:1}
+  .loading{display:flex;align-items:center;gap:9px;color:var(--dim);font:11px/1 var(--mono);
+    letter-spacing:.08em}
+  .spin{width:13px;height:13px;border:2px solid var(--line);border-top-color:var(--b);
+    border-radius:50%;animation:spin .7s linear infinite;flex:none}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .ghost{background:linear-gradient(90deg,#141a20,#1e262f,#141a20);background-size:200% 100%;
+    animation:sweep 1.4s linear infinite;border-radius:6px}
+  @keyframes sweep{to{background-position:-200% 0}}
+  canvas.pending{opacity:.25}
+
+  /* layer visualiser */
+  .lanes{border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-top:10px}
+  .lane{display:grid;grid-template-columns:104px 62px 1fr 56px;gap:10px;align-items:center;
+    padding:7px 11px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .lane:last-child{border-bottom:0}
+  .lane.off{opacity:.34}
+  .lane .nm{font:11px/1.3 var(--mono);letter-spacing:.03em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lane .nm small{display:block;color:var(--dimmer);font-size:9.5px}
+  .lane canvas{height:34px;margin:0;border:0;background:#0a0d11;border-radius:4px}
+  .lane .lvl{font:10px/1 var(--mono);color:var(--dimmer);text-align:right}
+  .ms{display:flex;gap:4px}
+  .ms button{width:27px;height:25px;border:1px solid var(--line);background:#0a0d11;color:var(--dimmer);
+    border-radius:4px;font:9px/1 var(--mono);font-weight:700;cursor:pointer}
+  .ms button:hover{color:var(--fg)}
+  .ms button.m.on{background:var(--hot);color:#2a0a06;border-color:var(--hot)}
+  .ms button.s.on{background:var(--good);color:#04180d;border-color:var(--good)}
+  .panelhead{display:flex;gap:10px;align-items:center;margin-top:20px;
+    border-top:1px solid var(--line);padding-top:14px}
+  .panelhead h3{margin:0;font:600 11px/1 var(--mono);letter-spacing:.14em;
+    text-transform:uppercase;color:var(--a)}
+
   .prose{max-width:74ch}
   .prose h3{font:600 13px/1.3 var(--mono);letter-spacing:.1em;text-transform:uppercase;
     color:var(--a);margin:26px 0 8px}
@@ -131,6 +166,7 @@
 </style>
 </head>
 <body>
+<div id="load"></div>
 <div class="wrap">
 <header>
   <div class="bar">
@@ -189,33 +225,56 @@ function audio() {
   return ctx;
 }
 
+// --- loading ---------------------------------------------------------------
+//
+// Rendering happens on the server and a long track in two eras is a real wait,
+// so every fetch is counted and the bar at the top of the window reflects how
+// many are still out. Silence during a two-second render reads as breakage.
+
+let inflight = 0, done = 0;
+function progress() {
+  const bar = $('#load');
+  if (!inflight) {
+    bar.style.width = '100%';
+    bar.classList.remove('on');
+    setTimeout(() => { if (!inflight) bar.style.width = '0'; }, 320);
+    done = 0;
+    return;
+  }
+  bar.classList.add('on');
+  bar.style.width = `${Math.round((done / (done + inflight)) * 88) + 6}%`;
+}
+async function tracked(p) {
+  inflight += 1; progress();
+  try { return await p; }
+  finally { inflight -= 1; done += 1; progress(); }
+}
+
 const cache = new Map();
 async function buffers(kind, id, params = {}) {
   const key = `${kind}:${id}:${JSON.stringify(params)}`;
   if (cache.has(key)) return cache.get(key);
-  const p = Promise.all(ERAS.map(async (e) => {
+  const p = tracked(Promise.all(ERAS.map(async (e) => {
     const q = new URLSearchParams({ kind, id, era: e, ...params });
     const r = await fetch(`/api/audio?${q}`);
     if (!r.ok) throw new Error(await r.text());
     return audio().decodeAudioData(await r.arrayBuffer());
-  }));
+  })));
   cache.set(key, p);
   return p;
 }
 
 /** Where the playhead is, in buffer seconds. Survives pause and speed changes. */
 function position() {
-  if (!now) return pausedAt;
-  if (paused) return pausedAt;
+  if (!now || paused) return pausedAt;
   const p = now.startOffset + (ctx.currentTime - now.startedAt) * speed;
   return looping && now.dur ? p % now.dur : Math.min(p, now.dur);
 }
 
-/** Tear down the sources without forgetting where we were. */
 function killSources() {
   if (!now) return;
-  for (const s of now.sources) { try { s.onended = null; s.stop(); } catch {} }
-  now.sources = [];
+  for (const st of now.stems) for (const s of st.sources) { try { s.onended = null; s.stop(); } catch {} }
+  now.stems = [];
 }
 
 function stop() {
@@ -236,51 +295,70 @@ function pause() {
 }
 
 /**
- * Start every era at once; only the selected one is audible.
+ * Start a set of STEMS, all at once, sample aligned.
  *
- * Both sources get the same offset and the same playbackRate, so they stay
- * sample-locked no matter how the transport is driven -- which is the whole
- * basis of switching eras mid-bar and landing in the same place.
+ * A stem is one thing that can be heard on its own -- the full mix, or a
+ * single voice. Each stem carries both eras, so the graph per stem is
+ * source -> eraGain -> stemGain -> master: the era switch moves eraGain and
+ * mute/solo moves stemGain, and the two never interfere. Everything starts at
+ * the same offset with the same playbackRate, which is what keeps a four-voice
+ * layer view locked together while you mute things in and out of it.
  */
-function playPair(bufs, id, offset = 0) {
+function playStems(stems, id, offset = 0) {
   killSources();
   const c = audio();
-  const at = c.currentTime + 0.04;
-  const sources = [], gains = [];
-  bufs.forEach((b, i) => {
-    const s = c.createBufferSource();
-    s.buffer = b;
-    s.playbackRate.value = speed;
-    s.loop = looping;
-    const g = c.createGain();
-    g.gain.value = ERAS[i] === era ? 1 : 0;
-    s.connect(g); g.connect(master);
-    s.start(at, offset % b.duration);
-    sources.push(s); gains.push(g);
+  const at = c.currentTime + 0.05;
+  const live = stems.map((st) => {
+    const stemGain = c.createGain();
+    stemGain.gain.value = stemLevel(st.id, stems);
+    stemGain.connect(master);
+    const sources = [], eraGains = [];
+    st.bufs.forEach((b, i) => {
+      const s = c.createBufferSource();
+      s.buffer = b; s.playbackRate.value = speed; s.loop = looping;
+      const g = c.createGain();
+      g.gain.value = ERAS[i] === era ? 1 : 0;
+      s.connect(g); g.connect(stemGain);
+      s.start(at, offset % b.duration);
+      sources.push(s); eraGains.push(g);
+    });
+    return { id: st.id, sources, eraGains, stemGain };
   });
-  now = { sources, gains, buffers: bufs, startOffset: offset, startedAt: at, dur: bufs[0].duration, id };
+  now = {
+    stems: live, buffers: stems[0].bufs, startOffset: offset, startedAt: at,
+    dur: stems[0].bufs[0].duration, id,
+  };
   paused = false;
-  sources[0].onended = () => { if (now && now.sources[0] === sources[0]) stop(); };
+  live[0].sources[0].onended = () => { if (now && now.stems[0]?.sources[0] === live[0].sources[0]) stop(); };
   syncTransport();
   return now;
 }
 
-function setSpeed(v) {
-  // Re-baseline before changing rate, or the elapsed-time sum is computed
-  // against a rate that was not in force for the part already played.
-  if (now && !paused) {
-    now.startOffset = position();
-    now.startedAt = ctx.currentTime;
+const mutes = new Set(), solos = new Set();
+/** Solo wins over mute, and soloing anything silences everything unsoloed. */
+function stemLevel(id) {
+  if (id === '#mix') return 1;
+  if (solos.size) return solos.has(id) ? 1 : 0;
+  return mutes.has(id) ? 0 : 1;
+}
+function applyStemLevels() {
+  if (!now) return;
+  for (const st of now.stems) {
+    st.stemGain.gain.setTargetAtTime(stemLevel(st.id), ctx.currentTime, 0.015);
   }
+}
+
+function setSpeed(v) {
+  if (now && !paused) { now.startOffset = position(); now.startedAt = ctx.currentTime; }
   speed = v;
-  if (now) for (const s of now.sources) s.playbackRate.value = speed;
+  if (now) for (const st of now.stems) for (const s of st.sources) s.playbackRate.value = speed;
   const l = $('#speedval'); if (l) l.textContent = `${speed.toFixed(2)}x`;
   const r = $('#speed'); if (r) r.value = String(speed);
 }
 
 function setLoop(on) {
   looping = on;
-  if (now) for (const s of now.sources) s.loop = looping;
+  if (now) for (const st of now.stems) for (const s of st.sources) s.loop = looping;
   syncTransport();
 }
 
@@ -290,11 +368,11 @@ function setEra(e) {
   if (now) {
     // A short ramp, not a jump: a hard gain switch clicks, and the click is
     // the loudest thing in the comparison.
-    now.gains.forEach((g, i) => g.gain.setTargetAtTime(ERAS[i] === era ? 1 : 0, ctx.currentTime, 0.012));
+    for (const st of now.stems) {
+      st.eraGains.forEach((g, i) => g.gain.setTargetAtTime(ERAS[i] === era ? 1 : 0, ctx.currentTime, 0.012));
+    }
   }
   markNative();
-  // A live A/B must NOT re-render -- that would tear down the audio. When
-  // nothing is playing there is no such risk and the waveform should recolour.
   if (tab !== 'tracks') render();
   else if (!now) render();
 }
@@ -309,13 +387,14 @@ function setEra(e) {
  */
 function markNative() {
   document.querySelectorAll('#era button').forEach((b) => {
-    b.querySelector('i').textContent = (b.dataset.era === nativeEra) ? 'AS WRITTEN' : '';
+    const i = b.querySelector('i');
+    if (i) i.textContent = (b.dataset.era === nativeEra) ? 'AS WRITTEN' : '';
   });
   const n = $('#eranote');
   if (n) {
     n.textContent = !nativeEra ? ''
       : era === nativeEra ? 'hearing it as written'
-        : `substituted — written for ${nativeEra}`;
+        : `substituted \u2014 written for ${nativeEra}`;
     n.style.color = (nativeEra && era !== nativeEra) ? 'var(--a)' : 'var(--dimmer)';
   }
 }
@@ -334,7 +413,7 @@ function syncTransport() {
 
 // ------------------------------------------------------------------ tracks --
 
-function drawWave(cv, buf, pos) {
+function drawWave(cv, buf, pos, alpha = 1) {
   const dpr = Math.min(2, devicePixelRatio || 1);
   const w = cv.clientWidth, h = cv.clientHeight;
   cv.width = w * dpr; cv.height = h * dpr;
@@ -342,7 +421,7 @@ function drawWave(cv, buf, pos) {
   g.clearRect(0, 0, w, h);
   const d = buf.getChannelData(0), step = Math.max(1, Math.floor(d.length / w));
   g.strokeStyle = era === '8bit' ? '#ffb74d' : '#6fe6ff';
-  g.globalAlpha = 0.85; g.lineWidth = 1;
+  g.globalAlpha = 0.85 * alpha; g.lineWidth = 1;
   g.beginPath();
   for (let x = 0; x < w; x++) {
     let lo = 1, hi = -1;
@@ -352,7 +431,7 @@ function drawWave(cv, buf, pos) {
   }
   g.stroke();
   if (pos != null) {
-    g.globalAlpha = 1; g.fillStyle = '#fff';
+    g.globalAlpha = Math.max(0.5, alpha); g.fillStyle = '#fff';
     g.fillRect(Math.round(pos * w), 0, 1.5, h);
   }
 }
@@ -360,20 +439,33 @@ function drawWave(cv, buf, pos) {
 function trackView(t) {
   const c = el('div', 'card');
   c.append(el('h2', null, esc(t.name)));
-  c.append(el('div', 'meta', `${t.bpm} BPM \u00b7 ${t.beats} steps/bar \u00b7 ${t.bars} bars \u00b7 ${t.seconds}s \u00b7 `
-    + `${t.voices.length} voices \u00b7 written for ${t.era} \u00b7 ${esc(t.tags.join(' '))}`));
+  c.append(el('div', 'meta', `${t.bpm} BPM · ${t.beats} steps/bar · ${t.bars} bars · ${t.seconds}s · `
+    + `${t.voices.length} voices · written for ${t.era} · ${esc(t.tags.join(' '))}`));
 
   if (t.blurb.length) {
-    const b = el('div', 'blurb clip', esc(t.blurb.join('\n')));
-    const more = el('button', 'more', 'show all \u25be');
+    const bl = el('div', 'blurb clip', esc(t.blurb.join('\n')));
+    const more = el('button', 'more', 'show all ▾');
     more.onclick = () => {
-      const open = b.classList.toggle('clip');
-      more.textContent = open ? 'show all \u25be' : 'show less \u25b4';
+      const open = bl.classList.toggle('clip');
+      more.textContent = open ? 'show all ▾' : 'show less ▴';
     };
-    c.append(b, more);
+    c.append(bl, more);
   }
 
-  const cv = el('canvas'); c.append(cv);
+  const barDur = (t.beats * 60) / t.bpm / 4;
+  // A window big enough to hear a phrase, small enough that N voices x 2 eras
+  // is not a hundred megabytes of decoded audio.
+  const winBars = Math.max(2, Math.min(8, Math.round(20 / barDur)));
+
+  let mixBufs = null;            // the full track, both eras
+  let layer = null;              // { from, bars, voices:[{id,bufs}] } when open
+
+  const stems = () => (layer
+    ? layer.voices.map((v) => ({ id: v.id, bufs: v.bufs }))
+    : [{ id: '#mix', bufs: mixBufs }]);
+  const current = () => (layer ? layer.voices[0].bufs : mixBufs);
+
+  const cv = el('canvas'); cv.classList.add('pending'); c.append(cv);
 
   // --- transport -----------------------------------------------------------
   const tr = el('div', 'transport');
@@ -382,35 +474,150 @@ function trackView(t) {
   const bPlay = el('button', null, ICON.play); bPlay.id = 'bplay';
   const bStop = el('button', null, ICON.stop); bStop.id = 'bstop'; bStop.title = 'Stop';
   keys.append(bBack, bPlay, bStop);
-  const time = el('div', 'time', '0:00 / 0:00');
-  const barno = el('div', 'barno', 'bar \u2013/\u2013');
+  const time = el('div', 'time', '–:–– / –:––');
+  const barno = el('div', 'barno', '');
   const bLoop = el('button', 'loopbtn', 'LOOP'); bLoop.id = 'bloop'; bLoop.title = 'Loop (L)';
-
   const sp = el('div', 'speed');
-  const spLabel = el('label', null, 'SPEED');
   const spIn = el('input'); spIn.type = 'range'; spIn.id = 'speed';
   spIn.min = '0.25'; spIn.max = '2'; spIn.step = '0.05'; spIn.value = String(speed);
   const spVal = el('div', 'v', `${speed.toFixed(2)}x`); spVal.id = 'speedval';
-  const spReset = el('button', null, 'reset'); spReset.title = 'Back to 1.00x';
-  sp.append(spLabel, spIn, spVal, spReset);
-
+  const spReset = el('button', null, 'reset');
+  sp.append(el('label', null, 'SPEED'), spIn, spVal, spReset);
   tr.append(keys, time, barno, bLoop, sp);
   c.append(tr);
-  c.append(el('div', 'hint',
-    'space play/pause \u00b7 1 and 2 switch era \u00b7 L loop \u00b7 click the waveform to seek. '
-    + 'Speed resamples, so pitch moves with tempo. For tempo alone: sound play <track> --bpm 90'));
+  const hint = el('div', 'hint',
+    'space play/pause · 1 and 2 switch era · L loop · click the waveform to seek. '
+    + 'Speed resamples, so pitch moves with tempo. For tempo alone: sound play <track> --bpm 90');
+  c.append(hint);
 
-  let bufs = null;
-  const barDur = (t.beats * 60) / t.bpm / 4;
+  // --- the layer visualiser ------------------------------------------------
+  const ph = el('div', 'panelhead');
+  ph.append(el('h3', null, 'Layers'));
+  const bOpen = el('button', 'btn tiny', 'SHOW LAYERS');
+  const winLabel = el('span', 'meta', '');
+  const bPrev = el('button', 'btn tiny', '◀'); bPrev.hidden = true;
+  const bNext = el('button', 'btn tiny', '▶'); bNext.hidden = true;
+  ph.append(bOpen, bPrev, winLabel, bNext);
+  c.append(ph);
+  const lanesBox = el('div');
+  c.append(lanesBox);
 
+  const laneCanvases = new Map();
+  const isSilent = (b) => {
+    const d = b.getChannelData(0);
+    for (let i = 0; i < d.length; i += 64) if (Math.abs(d[i]) > 0.0008) return false;
+    return true;
+  };
+
+  function drawLanes(pos) {
+    for (const [id, cvv] of laneCanvases) {
+      const v = layer?.voices.find((x) => x.id === id);
+      if (!v) continue;
+      drawWave(cvv, v.bufs[ERAS.indexOf(era)], pos, stemLevel(id) === 0 ? 0.25 : 1);
+    }
+  }
+
+  function buildLanes() {
+    lanesBox.innerHTML = '';
+    laneCanvases.clear();
+    const box = el('div', 'lanes');
+    for (const v of t.voices) {
+      const row = el('div', 'lane');
+      const nm = el('div', 'nm', `${esc(v.id)}<small>${esc(v.inst)}</small>`);
+      const ms = el('div', 'ms');
+      const m = el('button', 'm', 'M'); m.title = 'Mute';
+      const so = el('button', 's', 'S'); so.title = 'Solo';
+      m.onclick = () => {
+        mutes.has(v.id) ? mutes.delete(v.id) : mutes.add(v.id);
+        applyStemLevels(); refreshLaneState();
+      };
+      so.onclick = () => {
+        solos.has(v.id) ? solos.delete(v.id) : solos.add(v.id);
+        applyStemLevels(); refreshLaneState();
+      };
+      ms.append(m, so);
+      const lc = el('canvas');
+      laneCanvases.set(v.id, lc);
+      const buf = layer?.voices.find((x) => x.id === v.id)?.bufs[0];
+      const silent = buf ? isSilent(buf) : false;
+      const lvl = el('div', 'lvl', silent ? 'tacet' : String(v.mix));
+      if (silent) {
+        row.classList.add('off');
+        nm.innerHTML = `${esc(v.id)}<small>not in these bars</small>`;
+      }
+      row.append(nm, ms, lc, lvl);
+      row.dataset.voice = v.id;
+      row._m = m; row._s = so;
+      box.append(row);
+    }
+    lanesBox.append(box);
+    lanesBox.append(el('div', 'hint',
+      'M mutes, S solos. Lanes are rendered at their real level in the mix — a quiet '
+      + 'pad looks quiet, because that is the thing worth seeing.'));
+    refreshLaneState();
+  }
+
+  function refreshLaneState() {
+    for (const row of lanesBox.querySelectorAll('.lane')) {
+      const id = row.dataset.voice;
+      row._m.classList.toggle('on', mutes.has(id));
+      row._s.classList.toggle('on', solos.has(id));
+      row.classList.toggle('off', stemLevel(id) === 0);
+    }
+    drawLanes(now || paused ? position() / (now?.dur || 1) : null);
+  }
+
+  async function openLayers(from = 0) {
+    bOpen.textContent = 'LOADING…';
+    bOpen.disabled = true;
+    lanesBox.innerHTML = '';
+    const wait = el('div', 'loading');
+    wait.append(el('div', 'spin'), el('span', null,
+      `rendering ${t.voices.length} voices × 2 eras — bars ${from + 1}–${Math.min(t.bars, from + winBars)}`));
+    lanesBox.append(wait);
+    const got = await Promise.all(t.voices.map(async (v) => ({
+      id: v.id,
+      bufs: await buffers('track', t.id, { voice: v.id, bars: String(from + winBars) }),
+    })));
+    layer = { from, bars: winBars, voices: got };
+    bOpen.textContent = 'HIDE LAYERS';
+    bOpen.disabled = false;
+    bPrev.hidden = bNext.hidden = false;
+    winLabel.textContent = `bars 1–${Math.min(t.bars, from + winBars)}`;
+    buildLanes();
+    if (now || paused) start(Math.min(position(), current()[0].duration - 0.05));
+    else paint();
+  }
+
+  function closeLayers() {
+    const was = !!now;
+    layer = null;
+    lanesBox.innerHTML = '';
+    laneCanvases.clear();
+    bOpen.textContent = 'SHOW LAYERS';
+    bPrev.hidden = bNext.hidden = true;
+    winLabel.textContent = '';
+    if (was) start(0); else { stop(); paint(); }
+  }
+
+  bOpen.onclick = () => (layer ? closeLayers() : openLayers(0));
+  bNext.onclick = () => openLayers(Math.min(Math.max(0, t.bars - winBars), layer.from + winBars));
+  bPrev.onclick = () => openLayers(Math.max(0, layer.from - winBars));
+
+  // --- painting ------------------------------------------------------------
   const paint = () => {
-    const set = bufs || now?.buffers;
+    const set = current() || now?.buffers;
     if (!set) return;
+    cv.classList.remove('pending');
     const pos = position();
     const dur = now?.dur || set[0].duration;
-    drawWave(cv, set[ERAS.indexOf(era)], (now || paused) ? pos / dur : null);
+    const frac = (now || paused) ? pos / dur : null;
+    drawWave(cv, set[ERAS.indexOf(era)], frac);
     time.textContent = `${mmss(pos)} / ${mmss(dur)}`;
-    barno.textContent = `bar ${Math.min(t.bars, Math.floor(pos / barDur) + 1)}/${t.bars}`;
+    barno.textContent = layer
+      ? `bar ${layer.from + Math.floor(pos / barDur) + 1}/${t.bars}`
+      : `bar ${Math.min(t.bars, Math.floor(pos / barDur) + 1)}/${t.bars}`;
+    if (layer) drawLanes(frac);
   };
   const tick = () => {
     if (!now || paused) { raf = 0; return; }
@@ -419,15 +626,14 @@ function trackView(t) {
   };
 
   const start = async (offset = 0) => {
-    if (!bufs) bufs = await buffers('track', t.id);
-    playPair(bufs, t.id, offset);
+    if (!mixBufs) mixBufs = await buffers('track', t.id);
+    playStems(stems(), t.id, offset);
     cancelAnimationFrame(raf); tick();
   };
 
   bPlay.onclick = () => {
     if (now && !paused) { pause(); paint(); return; }
-    if (paused) { start(pausedAt); return; }
-    start(0);
+    start(paused ? pausedAt : 0);
   };
   bStop.onclick = () => { stop(); paint(); };
   bBack.onclick = () => { if (now || paused) start(0); else { pausedAt = 0; paint(); } };
@@ -435,15 +641,17 @@ function trackView(t) {
   spIn.oninput = (e) => setSpeed(+e.target.value);
   spReset.onclick = () => setSpeed(1);
   cv.onclick = (e) => {
-    if (!bufs) return;
-    const off = (e.offsetX / cv.clientWidth) * bufs[0].duration;
+    const set = current();
+    if (!set) return;
+    const off = (e.offsetX / cv.clientWidth) * set[0].duration;
     if (now && !paused) start(off);
-    else { pausedAt = off; paused = !!now || paused; paint(); syncTransport(); }
+    else { pausedAt = off; paint(); syncTransport(); }
   };
 
   (async () => {
     bPlay.disabled = true;
-    bufs = await buffers('track', t.id);
+    time.textContent = 'rendering…';
+    mixBufs = await buffers('track', t.id);
     bPlay.disabled = false;
     syncTransport();
     paint();
@@ -466,7 +674,7 @@ function trackView(t) {
   c.append(tbl);
 
   const d = el('details');
-  d.append(el('summary', null, `tracks/${t.id}.snd \u2014 the whole score, as text`));
+  d.append(el('summary', null, `tracks/${t.id}.snd — the whole score, as text`));
   d.append(el('pre', null, esc(t.source)));
   c.append(d);
   return c;
@@ -510,6 +718,52 @@ function fxCard(f) {
   c.append(strip);
   c.append(el('div', 'hint', `click ${nL} = layers 1..n · shift-click = that layer alone`));
 
+  // Lazily rendered, because twenty effects x their layers x two eras up front
+  // would be a hundred renders nobody asked for.
+  const insp = el('details');
+  insp.append(el('summary', null, 'inspect layers'));
+  const ibox = el('div');
+  insp.append(ibox);
+  let built = false;
+  insp.ontoggle = async () => {
+    if (!insp.open || built) return;
+    built = true;
+    const wait = el('div', 'loading');
+    wait.append(el('div', 'spin'), el('span', null, `rendering ${nL} layers`));
+    ibox.append(wait);
+    const lanes = el('div', 'lanes');
+    for (let i = 0; i < nL; i++) {
+      const bufs = await buffers('fx', f.id, { solo: String(i) });
+      const row = el('div', 'lane');
+      const label = (f.eras[era] || f.eras['8bit'] || [])[i] || '';
+      const kind = (label.match(/\b(tone|noise)\b/) || [, '?'])[1];
+      const bits = label.split(/\s+/).slice(2, 5).join(' ');
+      row.append(el('div', 'nm', `${i + 1}. ${kind}<small>${esc(bits)}</small>`));
+      const ms = el('div', 'ms');
+      const pb = el('button', null, '▶');
+      pb.title = 'Hear this layer alone';
+      pb.onclick = () => {
+        const s2 = audio().createBufferSource();
+        s2.buffer = bufs[ERAS.indexOf(era)];
+        s2.connect(master);
+        s2.start();
+      };
+      ms.append(pb);
+      const lc = el('canvas');
+      row.append(ms, lc, el('div', 'lvl', ''));
+      lanes.append(row);
+      requestAnimationFrame(() => drawWave(lc, bufs[ERAS.indexOf(era)], null));
+    }
+    wait.remove();
+    ibox.append(lanes);
+    ibox.append(el('div', 'hint',
+      'Each lane is one line of the file, at the level it sits at in the stack. The tall '
+      + 'ones are doing the obvious work; the short one at the front is usually the '
+      + 'transient, which matters far more than its height suggests.'));
+  };
+  c.append(insp);
+
+
   const d = el('details');
   d.append(el('summary', null, `fx/${f.id}.fx`));
   d.append(el('pre', null, esc(f.source)));
@@ -533,7 +787,7 @@ function render() {
       const b = el('button', pick.tracks === t.id ? 'on' : '');
       b.append(el('div', 't', esc(t.name)));
       b.append(el('div', 's', `${t.seconds}s · ${t.bars} bars · ${t.voices.length}v · ${esc(t.tags[0] || '')}`));
-      b.onclick = () => { pick.tracks = t.id; stop(); era = t.era; render(); };
+      b.onclick = () => { pick.tracks = t.id; stop(); mutes.clear(); solos.clear(); era = t.era; render(); };
       list.append(b);
     }
     g.append(list);

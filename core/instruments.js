@@ -129,13 +129,21 @@ export const INSTRUMENTS = {
   },
   'fm-bass': {
     era: '16bit', env: { a: 0.003, d: 0.14, s: 0.55, r: 0.09 }, cut: 2600,
-    desc: 'FM bass: one modulator at 1:1 with feedback. The Genesis thump.',
+    desc: 'FM bass: one modulator at 1:1 with light feedback. The Genesis thump.',
     fm: {
       algo: 'bass',
-      ops: [op(1, 1, 0.002, 0.16, 0.60, 0.08), op(1, 0.72, 0.002, 0.07, 0.12, 0.05, 0.35),
+      ops: [op(1, 1, 0.002, 0.16, 0.60, 0.08), op(1, 0.42, 0.002, 0.07, 0.12, 0.05, 0.22),
         op(1, 0, 0, 0, 0, 0), op(1, 0, 0, 0, 0, 0)],
     },
-    layers: [{ osc: 'fm', gain: 1 }, { osc: 'sine', semi: -12, gain: 0.35 }],
+    // NO sub-octave layer. A 1:1 FM bass with feedback already has a strong
+    // fundamental, and a sine an octave under it is subsonic the moment the
+    // part is written where bass parts are actually written: under Canon's D2
+    // it lands on 36.7 Hz, which no laptop, phone or TV reproduces as a pitch.
+    // What you get instead is cone excursion -- heard as a scratch -- and a
+    // limiter pulling the whole mix down to make room for a note nobody can
+    // hear. The weight goes at the octave ABOVE instead, which is where a
+    // small speaker can actually render it.
+    layers: [{ osc: 'fm', gain: 1 }, { osc: 'sine', semi: 12, gain: 0.14 }],
   },
   'fm-bell': {
     era: '16bit', env: { a: 0.002, d: 0.9, s: 0.06, r: 0.5 }, cut: 9000,

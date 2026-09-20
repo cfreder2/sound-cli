@@ -21,14 +21,14 @@
   c5  .   d5  e5  .   f5     e5  .   d5  b4  .   g4
   a4  .   b4  g#4 .   e4     a4  .   .   .   .   .
 
-@voice pad inst=pad mix=0.06 oct=-1 pan=0.18
+@voice pad inst=pad mix=0.06 pan=0.18
   a3  .   .   .   .   .      a3  .   .   .   .   .
   g3  .   .   .   .   .      a3  .   .   .   .   .
   e3  .   .   .   .   .      e3  .   .   .   .   .
   a3  .   .   .   .   .      g3  .   .   .   .   .
   a3  .   .   e3  .   .      a3  .   .   .   .   .
 
-@voice bass inst=fm-bass mix=0.14 oct=-1
+@voice bass inst=fm-bass mix=0.14
   a2  .   .   e3  .   .      a2  .   .   e3  .   .
   g2  .   .   d3  .   .      a2  .   .   e3  .   .
   e2  .   .   b2  .   .      e2  .   .   b2  .   .
@@ -43,13 +43,13 @@
   g5  .   .   f5  e5  .      d5  .   b4  g4  .   a4
   b4  .   c5  a4  .   g#4    a4  .   .   .   .   .
 
-@voice pad inst=pad mix=0.06 oct=-1 pan=0.18
+@voice pad inst=pad mix=0.06 pan=0.18
   c4  .   .   .   .   .      g3  .   .   .   .   .
   a3  .   .   .   .   .      e3  .   .   .   .   .
   c4  .   .   .   .   .      g3  .   .   .   .   .
   a3  .   .   e3  .   .      a3  .   .   .   .   .
 
-@voice bass inst=fm-bass mix=0.14 oct=-1
+@voice bass inst=fm-bass mix=0.14
   c3  .   .   g3  .   .      g2  .   .   d3  .   .
   a2  .   .   e3  .   .      e2  .   .   b2  .   .
   c3  .   .   g3  .   .      g2  .   .   d3  .   .
