@@ -227,9 +227,13 @@ function renderDrum(mix, at, hit, gain, era, send) {
  */
 export function renderTrack(track, {
   era = track.era, rate = RATE, intensity = 1, bars = null, tail = TAIL,
-  targetRmsDb = -18, normalize = true,
+  targetRmsDb = -18, normalize = true, bpm = null,
 } = {}) {
-  const stepTime = 60 / track.bpm / 4;
+  // Overriding the tempo here re-sequences the score, so the notes keep their
+  // pitch. The preview page's speed slider resamples instead, which is instant
+  // but drags pitch along with it -- two different questions, two different
+  // controls, and the difference is worth knowing.
+  const stepTime = 60 / (bpm || track.bpm) / 4;
   const limitBars = bars ?? track.totalBars;
   const steps = Math.min(track.steps, limitBars * track.beats);
   const seconds = steps * stepTime + tail;
@@ -312,7 +316,7 @@ export function renderTrack(track, {
   return {
     L: mix.L, R: mix.R, rate, era,
     stats: {
-      seconds: n / rate, bars: limitBars, steps,
+      seconds: n / rate, bars: limitBars, steps, bpm: bpm || track.bpm,
       peakDb: db(peak), rmsDb: db(rms), gainDb: db(gain), voices: used,
     },
   };

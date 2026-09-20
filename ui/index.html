@@ -34,6 +34,8 @@
   .ab button.on:first-child{background:var(--a);color:#1a1200}
   .ab button.on:last-child{background:var(--b);color:#001820}
   .ab button:first-child{border-right:1px solid var(--line)}
+  .ab button i{font-style:normal;font-size:9px;opacity:.55;margin-left:6px;letter-spacing:.06em}
+  .ab button.on i{opacity:.75}
 
   .btn{border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:7px;
     font:600 12px/1 var(--mono);letter-spacing:.08em;padding:9px 14px;cursor:pointer}
@@ -63,12 +65,33 @@
   .card h2{margin:0 0 3px;font:600 17px/1.2 var(--mono);letter-spacing:.04em}
   .meta{color:var(--dim);font:11px/1.6 var(--mono);letter-spacing:.03em}
   .blurb{color:var(--dim);font-size:13px;margin:13px 0;white-space:pre-wrap;
-    border-left:2px solid var(--line);padding-left:12px;max-height:190px;overflow:auto}
+    border-left:2px solid var(--line);padding-left:12px}
+  .blurb.clip{max-height:96px;overflow:hidden;
+    -webkit-mask-image:linear-gradient(#000 60%,transparent);mask-image:linear-gradient(#000 60%,transparent)}
+  .more{background:none;border:0;color:var(--b);font:11px/1 var(--mono);letter-spacing:.08em;
+    cursor:pointer;padding:4px 0}
 
   canvas{width:100%;height:76px;display:block;background:#0a0d11;border:1px solid var(--line);
     border-radius:6px;margin:14px 0 8px}
-  .transport{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
-  .time{font:11px/1 var(--mono);color:var(--dim);min-width:92px}
+  .transport{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+  .keys{display:flex;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .keys button{border:0;border-right:1px solid var(--line);background:var(--panel2);color:var(--fg);
+    width:46px;height:38px;display:grid;place-items:center;cursor:pointer;transition:.12s}
+  .keys button:last-child{border-right:0}
+  .keys button:hover{background:#26323d}
+  .keys button[disabled]{opacity:.3;cursor:default}
+  .keys button.on{background:var(--good);color:#04180d}
+  .keys svg{width:15px;height:15px;fill:currentColor}
+  .time{font:12px/1 var(--mono);color:var(--fg);min-width:96px;font-variant-numeric:tabular-nums}
+  .barno{font:11px/1 var(--mono);color:var(--dim);min-width:74px}
+  .speed{display:flex;align-items:center;gap:7px;margin-left:auto}
+  .speed label{font:10px/1 var(--mono);letter-spacing:.1em;color:var(--dimmer)}
+  .speed input{width:112px}
+  .speed .v{font:11px/1 var(--mono);color:var(--b);min-width:42px;text-align:right}
+  .speed button{background:none;border:0;color:var(--dimmer);cursor:pointer;font:10px/1 var(--mono)}
+  .loopbtn{border:1px solid var(--line);background:var(--panel2);color:var(--dim);border-radius:7px;
+    font:600 10px/1 var(--mono);letter-spacing:.1em;padding:11px 12px;cursor:pointer}
+  .loopbtn.on{background:var(--good);color:#04180d;border-color:var(--good)}
 
   table{width:100%;border-collapse:collapse;font:12px/1.5 var(--mono);margin-top:12px}
   th,td{text-align:left;padding:6px 9px;border-bottom:1px solid var(--line)}
@@ -113,10 +136,10 @@
   <div class="bar">
     <h1>Sound <span>// preview</span></h1>
     <div class="ab" id="era">
-      <button data-era="8bit" class="on">8-BIT</button>
-      <button data-era="16bit">16-BIT</button>
+      <button data-era="8bit" class="on">8-BIT<i></i></button>
+      <button data-era="16bit">16-BIT<i></i></button>
     </div>
-    <button class="btn" id="stop">STOP</button>
+    <span class="meta" id="eranote"></span>
     <div class="grow"></div>
     <span class="meta">VOL</span><input type="range" id="vol" min="0" max="1" step="0.01" value="0.75">
   </div>
@@ -138,8 +161,16 @@
 // comparing one timbre to its own memory four seconds ago.
 
 const ERAS = ['8bit', '16bit'];
+const ICON = {
+  play: '<svg viewBox="0 0 16 16"><path d="M3 1.8v12.4L14 8z"/></svg>',
+  pause: '<svg viewBox="0 0 16 16"><path d="M3 2h3.6v12H3zM9.4 2H13v12H9.4z"/></svg>',
+  stop: '<svg viewBox="0 0 16 16"><path d="M2.6 2.6h10.8v10.8H2.6z"/></svg>',
+  back: '<svg viewBox="0 0 16 16"><path d="M3 2h2v12H3zM14 2v12L5.6 8z"/></svg>',
+  loop: '<svg viewBox="0 0 16 16"><path d="M4 3h7V.8L15.2 4 11 7.2V5H5v3.4L3 7V4a1 1 0 011-1zm8 10H5v2.2L.8 12 5 8.8V11h6V7.6L13 9v3a1 1 0 01-1 1z"/></svg>',
+};
 let ctx, master, era = '8bit', manifest = null;
-let now = null;            // { sources, gains, buffers, startedAt, dur, id, kind }
+let now = null;       // { sources, gains, buffers, startOffset, startedAt, dur, id }
+let paused = false, pausedAt = 0, speed = 1, looping = false, nativeEra = null;
 let raf = 0;
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -172,30 +203,85 @@ async function buffers(kind, id, params = {}) {
   return p;
 }
 
-function stop() {
-  if (now) { for (const s of now.sources) { try { s.stop(); } catch {} } now = null; }
-  cancelAnimationFrame(raf); raf = 0;
-  document.querySelectorAll('.lit').forEach((n) => n.classList.remove('lit'));
-  if ($('#playbtn')) $('#playbtn').textContent = 'PLAY';
+/** Where the playhead is, in buffer seconds. Survives pause and speed changes. */
+function position() {
+  if (!now) return pausedAt;
+  if (paused) return pausedAt;
+  const p = now.startOffset + (ctx.currentTime - now.startedAt) * speed;
+  return looping && now.dur ? p % now.dur : Math.min(p, now.dur);
 }
 
-/** Start every era at once; only the selected one is audible. */
-function playPair(bufs, kind, id, offset = 0) {
-  stop();
+/** Tear down the sources without forgetting where we were. */
+function killSources() {
+  if (!now) return;
+  for (const s of now.sources) { try { s.onended = null; s.stop(); } catch {} }
+  now.sources = [];
+}
+
+function stop() {
+  killSources();
+  now = null; paused = false; pausedAt = 0;
+  cancelAnimationFrame(raf); raf = 0;
+  document.querySelectorAll('.lit').forEach((n) => n.classList.remove('lit'));
+  syncTransport();
+}
+
+function pause() {
+  if (!now || paused) return;
+  pausedAt = position();
+  killSources();
+  paused = true;
+  cancelAnimationFrame(raf); raf = 0;
+  syncTransport();
+}
+
+/**
+ * Start every era at once; only the selected one is audible.
+ *
+ * Both sources get the same offset and the same playbackRate, so they stay
+ * sample-locked no matter how the transport is driven -- which is the whole
+ * basis of switching eras mid-bar and landing in the same place.
+ */
+function playPair(bufs, id, offset = 0) {
+  killSources();
   const c = audio();
   const at = c.currentTime + 0.04;
   const sources = [], gains = [];
   bufs.forEach((b, i) => {
-    const s = c.createBufferSource(); s.buffer = b;
+    const s = c.createBufferSource();
+    s.buffer = b;
+    s.playbackRate.value = speed;
+    s.loop = looping;
     const g = c.createGain();
     g.gain.value = ERAS[i] === era ? 1 : 0;
     s.connect(g); g.connect(master);
-    s.start(at, offset);
+    s.start(at, offset % b.duration);
     sources.push(s); gains.push(g);
   });
-  now = { sources, gains, buffers: bufs, startedAt: at - offset, dur: bufs[0].duration, id, kind };
+  now = { sources, gains, buffers: bufs, startOffset: offset, startedAt: at, dur: bufs[0].duration, id };
+  paused = false;
   sources[0].onended = () => { if (now && now.sources[0] === sources[0]) stop(); };
+  syncTransport();
   return now;
+}
+
+function setSpeed(v) {
+  // Re-baseline before changing rate, or the elapsed-time sum is computed
+  // against a rate that was not in force for the part already played.
+  if (now && !paused) {
+    now.startOffset = position();
+    now.startedAt = ctx.currentTime;
+  }
+  speed = v;
+  if (now) for (const s of now.sources) s.playbackRate.value = speed;
+  const l = $('#speedval'); if (l) l.textContent = `${speed.toFixed(2)}x`;
+  const r = $('#speed'); if (r) r.value = String(speed);
+}
+
+function setLoop(on) {
+  looping = on;
+  if (now) for (const s of now.sources) s.loop = looping;
+  syncTransport();
 }
 
 function setEra(e) {
@@ -206,7 +292,44 @@ function setEra(e) {
     // the loudest thing in the comparison.
     now.gains.forEach((g, i) => g.gain.setTargetAtTime(ERAS[i] === era ? 1 : 0, ctx.currentTime, 0.012));
   }
-  render();
+  markNative();
+  // A live A/B must NOT re-render -- that would tear down the audio. When
+  // nothing is playing there is no such risk and the waveform should recolour.
+  if (tab !== 'tracks') render();
+  else if (!now) render();
+}
+
+/**
+ * Say which era the selected track was WRITTEN for.
+ *
+ * This is the confusion the first version caused: a track's header said
+ * "written for 16bit" while the toggle sat on 8-BIT, and nothing connected the
+ * two. Now selecting a track moves the toggle to its native era, and the
+ * toggle itself says which one that is.
+ */
+function markNative() {
+  document.querySelectorAll('#era button').forEach((b) => {
+    b.querySelector('i').textContent = (b.dataset.era === nativeEra) ? 'AS WRITTEN' : '';
+  });
+  const n = $('#eranote');
+  if (n) {
+    n.textContent = !nativeEra ? ''
+      : era === nativeEra ? 'hearing it as written'
+        : `substituted — written for ${nativeEra}`;
+    n.style.color = (nativeEra && era !== nativeEra) ? 'var(--a)' : 'var(--dimmer)';
+  }
+}
+
+/** One place that makes the buttons agree with the actual state. */
+function syncTransport() {
+  const p = $('#bplay'), st = $('#bstop'), lp = $('#bloop'), bk = $('#bback');
+  if (!p) return;
+  const live = !!now && !paused;
+  p.innerHTML = live ? ICON.pause : ICON.play;
+  p.title = live ? 'Pause (space)' : 'Play (space)';
+  if (st) st.disabled = !now && !paused && !pausedAt;
+  if (bk) bk.disabled = !now && !paused && !pausedAt;
+  lp?.classList.toggle('on', looping);
 }
 
 // ------------------------------------------------------------------ tracks --
@@ -237,51 +360,94 @@ function drawWave(cv, buf, pos) {
 function trackView(t) {
   const c = el('div', 'card');
   c.append(el('h2', null, esc(t.name)));
-  c.append(el('div', 'meta', `${t.bpm} BPM · ${t.beats} steps/bar · ${t.bars} bars · ${t.seconds}s · `
-    + `${t.voices.length} voices · written for ${t.era} · ${esc(t.tags.join(' '))}`));
-  if (t.blurb.length) c.append(el('div', 'blurb', esc(t.blurb.join('\n'))));
+  c.append(el('div', 'meta', `${t.bpm} BPM \u00b7 ${t.beats} steps/bar \u00b7 ${t.bars} bars \u00b7 ${t.seconds}s \u00b7 `
+    + `${t.voices.length} voices \u00b7 written for ${t.era} \u00b7 ${esc(t.tags.join(' '))}`));
+
+  if (t.blurb.length) {
+    const b = el('div', 'blurb clip', esc(t.blurb.join('\n')));
+    const more = el('button', 'more', 'show all \u25be');
+    more.onclick = () => {
+      const open = b.classList.toggle('clip');
+      more.textContent = open ? 'show all \u25be' : 'show less \u25b4';
+    };
+    c.append(b, more);
+  }
 
   const cv = el('canvas'); c.append(cv);
+
+  // --- transport -----------------------------------------------------------
   const tr = el('div', 'transport');
-  const play = el('button', 'btn', 'PLAY'); play.id = 'playbtn';
+  const keys = el('div', 'keys');
+  const bBack = el('button', null, ICON.back); bBack.id = 'bback'; bBack.title = 'Back to start';
+  const bPlay = el('button', null, ICON.play); bPlay.id = 'bplay';
+  const bStop = el('button', null, ICON.stop); bStop.id = 'bstop'; bStop.title = 'Stop';
+  keys.append(bBack, bPlay, bStop);
   const time = el('div', 'time', '0:00 / 0:00');
-  tr.append(play, time);
-  const hint = el('span', 'meta', 'switch 8-BIT / 16-BIT while it plays — it stays in the same bar');
-  tr.append(hint);
+  const barno = el('div', 'barno', 'bar \u2013/\u2013');
+  const bLoop = el('button', 'loopbtn', 'LOOP'); bLoop.id = 'bloop'; bLoop.title = 'Loop (L)';
+
+  const sp = el('div', 'speed');
+  const spLabel = el('label', null, 'SPEED');
+  const spIn = el('input'); spIn.type = 'range'; spIn.id = 'speed';
+  spIn.min = '0.25'; spIn.max = '2'; spIn.step = '0.05'; spIn.value = String(speed);
+  const spVal = el('div', 'v', `${speed.toFixed(2)}x`); spVal.id = 'speedval';
+  const spReset = el('button', null, 'reset'); spReset.title = 'Back to 1.00x';
+  sp.append(spLabel, spIn, spVal, spReset);
+
+  tr.append(keys, time, barno, bLoop, sp);
   c.append(tr);
+  c.append(el('div', 'hint',
+    'space play/pause \u00b7 1 and 2 switch era \u00b7 L loop \u00b7 click the waveform to seek. '
+    + 'Speed resamples, so pitch moves with tempo. For tempo alone: sound play <track> --bpm 90'));
 
   let bufs = null;
+  const barDur = (t.beats * 60) / t.bpm / 4;
+
+  const paint = () => {
+    const set = bufs || now?.buffers;
+    if (!set) return;
+    const pos = position();
+    const dur = now?.dur || set[0].duration;
+    drawWave(cv, set[ERAS.indexOf(era)], (now || paused) ? pos / dur : null);
+    time.textContent = `${mmss(pos)} / ${mmss(dur)}`;
+    barno.textContent = `bar ${Math.min(t.bars, Math.floor(pos / barDur) + 1)}/${t.bars}`;
+  };
   const tick = () => {
-    if (!now || now.id !== t.id) return;
-    const p = Math.min(1, (ctx.currentTime - now.startedAt) / now.dur);
-    drawWave(cv, now.buffers[ERAS.indexOf(era)], p);
-    time.textContent = `${mmss((ctx.currentTime - now.startedAt))} / ${mmss(now.dur)}`;
+    if (!now || paused) { raf = 0; return; }
+    paint();
     raf = requestAnimationFrame(tick);
   };
 
-  const load = async () => {
-    play.textContent = '...'; play.disabled = true;
-    bufs = await buffers('track', t.id);
-    play.disabled = false; play.textContent = 'PLAY';
-    drawWave(cv, bufs[ERAS.indexOf(era)], null);
-    time.textContent = `0:00 / ${mmss(bufs[0].duration)}`;
-  };
-  load();
-
-  play.onclick = async () => {
-    if (now && now.id === t.id) { stop(); return; }
+  const start = async (offset = 0) => {
     if (!bufs) bufs = await buffers('track', t.id);
-    playPair(bufs, 'track', t.id);
-    play.textContent = 'STOP';
-    tick();
+    playPair(bufs, t.id, offset);
+    cancelAnimationFrame(raf); tick();
   };
-  cv.onclick = async (e) => {
+
+  bPlay.onclick = () => {
+    if (now && !paused) { pause(); paint(); return; }
+    if (paused) { start(pausedAt); return; }
+    start(0);
+  };
+  bStop.onclick = () => { stop(); paint(); };
+  bBack.onclick = () => { if (now || paused) start(0); else { pausedAt = 0; paint(); } };
+  bLoop.onclick = () => setLoop(!looping);
+  spIn.oninput = (e) => setSpeed(+e.target.value);
+  spReset.onclick = () => setSpeed(1);
+  cv.onclick = (e) => {
     if (!bufs) return;
     const off = (e.offsetX / cv.clientWidth) * bufs[0].duration;
-    playPair(bufs, 'track', t.id, off);
-    play.textContent = 'STOP';
-    tick();
+    if (now && !paused) start(off);
+    else { pausedAt = off; paused = !!now || paused; paint(); syncTransport(); }
   };
+
+  (async () => {
+    bPlay.disabled = true;
+    bufs = await buffers('track', t.id);
+    bPlay.disabled = false;
+    syncTransport();
+    paint();
+  })();
 
   const tbl = el('table');
   tbl.innerHTML = '<tr><th>voice</th><th>instrument</th><th>on 8-bit</th><th>on 16-bit</th><th>mix</th><th>pan</th></tr>';
@@ -290,8 +456,8 @@ function trackView(t) {
       const i = manifest.instruments.find((x) => x.name === v.inst);
       if (!i) return '?';
       if (i.era === e) return `<span class="n">${v.inst}</span>`;
-      const s = manifest.substitute[e]?.[v.inst];
-      return s ? `<span class="swap">${s}</span>` : `<span class="n">${v.inst}</span>`;
+      const x = manifest.substitute[e]?.[v.inst];
+      return x ? `<span class="swap">${x}</span>` : `<span class="n">${v.inst}</span>`;
     };
     tbl.append(el('tr', null, `<td>${esc(v.id)}</td><td>${esc(v.inst)}</td>`
       + `<td>${sub('8bit')}</td><td>${sub('16bit')}</td>`
@@ -300,7 +466,7 @@ function trackView(t) {
   c.append(tbl);
 
   const d = el('details');
-  d.append(el('summary', null, `tracks/${t.id}.snd — the whole score, as text`));
+  d.append(el('summary', null, `tracks/${t.id}.snd \u2014 the whole score, as text`));
   d.append(el('pre', null, esc(t.source)));
   c.append(d);
   return c;
@@ -367,17 +533,21 @@ function render() {
       const b = el('button', pick.tracks === t.id ? 'on' : '');
       b.append(el('div', 't', esc(t.name)));
       b.append(el('div', 's', `${t.seconds}s · ${t.bars} bars · ${t.voices.length}v · ${esc(t.tags[0] || '')}`));
-      b.onclick = () => { pick.tracks = t.id; stop(); render(); };
+      b.onclick = () => { pick.tracks = t.id; stop(); era = t.era; render(); };
       list.append(b);
     }
     g.append(list);
     const t = manifest.tracks.find((x) => x.id === pick.tracks) || manifest.tracks[0];
     pick.tracks = t.id;
+    nativeEra = t.era;
     g.append(trackView(t));
     main.append(g);
+    document.querySelectorAll('#era button').forEach((b) => b.classList.toggle('on', b.dataset.era === era));
+    markNative();
     return;
   }
 
+  nativeEra = null; markNative();
   if (tab === 'fx') {
     const note = el('div', 'note',
       'Every effect exists twice — one <code>@era</code> block per console generation, in the same file. '
@@ -486,13 +656,15 @@ $('#tabs').onclick = (e) => {
   render();
 };
 $('#era').onclick = (e) => { const b = e.target.closest('button'); if (b) setEra(b.dataset.era); };
-$('#stop').onclick = stop;
 $('#vol').oninput = (e) => { if (master) master.gain.value = +e.target.value; };
 addEventListener('keydown', (e) => {
   if (e.target.matches('input,textarea')) return;
-  if (e.key === ' ') { e.preventDefault(); $('#playbtn')?.click(); }
-  if (e.key === '1') setEra('8bit');
-  if (e.key === '2') setEra('16bit');
+  if (e.key === ' ') { e.preventDefault(); $('#bplay')?.click(); }
+  else if (e.key === '1') setEra('8bit');
+  else if (e.key === '2') setEra('16bit');
+  else if (e.key.toLowerCase() === 'l') setLoop(!looping);
+  else if (e.key === 'Escape') { stop(); }
+  else if (e.key === 'ArrowLeft') $('#bback')?.click();
 });
 
 const r = await fetch('/api/manifest');
@@ -500,6 +672,9 @@ manifest = await r.json();
 // The substitution table lives in core/instruments.js and rides along in the
 // manifest, so the page never has to guess what a voice becomes on the other rig.
 manifest.substitute = manifest.substituteTable;
+if (manifest.tracks.length) { era = manifest.tracks[0].era; nativeEra = era; }
+document.querySelectorAll('#era button').forEach((b) => b.classList.toggle('on', b.dataset.era === era));
+markNative();
 render();
 </script>
 </body>

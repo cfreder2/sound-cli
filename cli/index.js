@@ -148,7 +148,10 @@ const VERBS = {
       const t = readTrack(n);
       for (const e of eras) {
         const era = e || t.era;
-        const out = renderTrack(t, { era, bars: flag('bars') ? Number(flag('bars')) : null });
+        const out = renderTrack(t, {
+          era, bars: flag('bars') ? Number(flag('bars')) : null,
+          bpm: flag('bpm') ? Number(flag('bpm')) : null,
+        });
         const file = `${n}${eras.length > 1 || flag('era') ? `-${era}` : ''}.${format}`;
         const bytes = await write(out.L, out.R, out.rate, join(dir, file), format, depth);
         const subs = out.stats.voices.filter((v) => v.substituted);
@@ -166,10 +169,14 @@ const VERBS = {
     const n = positional[1] || die('play needs a track name');
     const t = readTrack(n);
     const era = flag('era') || t.era;
-    const out = renderTrack(t, { era, bars: flag('bars') ? Number(flag('bars')) : null });
+    const out = renderTrack(t, {
+      era, bars: flag('bars') ? Number(flag('bars')) : null,
+      bpm: flag('bpm') ? Number(flag('bpm')) : null,
+    });
     const path = join(tmpdir(), `sound-${n}-${era}.wav`);
     await write(out.L, out.R, out.rate, path, 'wav', 16);
-    console.log(`${t.name}  ${era}  ${out.stats.seconds.toFixed(1)}s  ${t.bpm}bpm  ${t.totalBars} bars`);
+    console.log(`${t.name}  ${era}  ${out.stats.seconds.toFixed(1)}s  ${out.stats.bpm}bpm`
+      + `${out.stats.bpm !== t.bpm ? ` (score says ${t.bpm})` : ''}  ${t.totalBars} bars`);
     console.log(`  ${out.stats.voices.map((v) => `${v.voice}:${v.inst}`).join('  ')}`);
     await playFile(path);
   },
@@ -279,6 +286,7 @@ const VERBS = {
       --both            render 8bit AND 16bit side by side
       --era 8bit|16bit  force an era, overriding the score
       --format wav|mp3  --depth 16|24|32  --bars N  --out DIR
+      --bpm N           re-sequence at another tempo, pitch unchanged
   sound fx list | play <n> | render [names] | explain <n>
       --both  --era  --vary
   sound instruments [--era 16bit]   what is available
