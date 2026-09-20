@@ -34,10 +34,12 @@ together, sample-aligned.** Switching 8-BIT / 16-BIT mid-playback only moves
 gain between them, so you land in the same bar instead of restarting and
 comparing a timbre to your memory of one four seconds ago.
 
-Every render is loudness-matched first — tracks to −18 dBFS RMS, effects to
-−3 dBFS peak — because the 16-bit rig renders several dB quieter on the same
-score, and the louder of two takes always wins a blind comparison. What you
-hear between the buttons is timbre and nothing else.
+Both versions are set to the same volume before you hear them. This matters
+more than it sounds: louder always wins a blind comparison, even when it is the
+worse take, and rendered raw the 16-bit rig lands about 5 dB above the 8-bit one
+on the same score. Levelling them means the difference you hear between the two
+buttons is the sound of the two machines and nothing else. The layer lanes are
+deliberately *not* levelled, because there the point is which voice is louder.
 
 **SHOW LAYERS** renders each voice on its own and stacks them as lanes with
 mute and solo. Lanes are drawn at their true level in the mix and are *not*

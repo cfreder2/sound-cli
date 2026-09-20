@@ -138,16 +138,20 @@ wider, but the 12.5% pulse has a nasal bite nothing in the 16-bit set
 reproduces, and the dry mix lets the sixteenths articulate in a way the echo
 send blurs.
 
-## Why every render is loudness-matched
+## Why both versions are set to the same volume
 
-Tracks are normalised to −18 dBFS RMS and effects to −3 dBFS peak before you
-hear them. This is not polish. The 16-bit rig renders 4–6 dB quieter than the
-8-bit one on the same score — FM carriers sum below unity where a pulse sits at
-it — and in any comparison the louder of two takes is judged better regardless
-of which is actually better. Without matching, the A/B would measure gain
-staging and nothing else.
+Louder always wins. Play anyone two versions of anything and they pick the
+louder one, even when it is worse, and even when they know the effect exists.
 
-What you hear between the two buttons is timbre, and only timbre.
+Rendered raw, the two eras are not equally loud: 16-bit lands about 5 dB above
+8-bit on the same score, averaged across the ten tracks here. Left alone, you
+would pick 16-bit every time regardless of what it sounded like. So both are
+levelled before playback — tracks to the same average level, effects to the same
+peak — and nothing else about them is touched.
+
+The layer lanes are deliberately **not** levelled. There the whole question is
+which voice is carrying the mix, so a pad at `mix=0.04` has to look and sound
+like a pad at `mix=0.04`.
 
 ## Adding an instrument
 

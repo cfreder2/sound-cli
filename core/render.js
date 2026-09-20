@@ -333,14 +333,13 @@ export function renderTrack(track, {
     for (let i = 0; i < n; i++) { mix.L[i] = tl.run(mix.L[i]); mix.R[i] = tr2.run(mix.R[i]); }
   }
 
-  // Loudness-match, then limit.
+  // Match loudness, then limit.
   //
-  // This is not polish; without it the A/B is a lie. The 16-bit rig renders
-  // 4-6 dB quieter than the 8-bit one on the same score -- FM carriers sum
-  // below unity where a pulse sits at it -- and in any comparison the louder
-  // of two takes is judged better regardless of which is better. Matching RMS
-  // before limiting means what you hear between the two buttons is timbre,
-  // which is the only thing the comparison is about.
+  // Without this the A/B is a lie. Rendered raw the two eras are about 5 dB
+  // apart -- 16-bit the louder, since instrument calibration landed -- and the
+  // louder of two takes wins a comparison regardless of which is better.
+  // Matching before limiting means what you hear between the two buttons is
+  // timbre, which is the only thing the comparison is about.
   let sum0 = 0;
   for (let i = 0; i < n; i++) sum0 += mix.L[i] * mix.L[i] + mix.R[i] * mix.R[i];
   const rms0 = Math.sqrt(sum0 / (2 * n));

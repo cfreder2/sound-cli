@@ -155,14 +155,8 @@
   .panelhead h3{margin:0;font:600 11px/1 var(--mono);letter-spacing:.14em;
     text-transform:uppercase;color:var(--a)}
 
-  .prose{max-width:74ch}
-  .prose h3{font:600 13px/1.3 var(--mono);letter-spacing:.1em;text-transform:uppercase;
     color:var(--a);margin:26px 0 8px}
-  .prose p{color:#c3ced8;margin:0 0 12px}
-  .prose code{font:12px var(--mono);background:var(--panel2);padding:2px 5px;border-radius:4px;color:var(--b)}
-  .prose ul{color:#c3ced8;padding-left:20px}
-  .prose li{margin-bottom:7px}
-  .note{border-left:2px solid var(--a);padding-left:13px;color:var(--dim);font-size:13px;margin:16px 0}
+  .note{border-left:2px solid var(--a);padding-left:13px;color:var(--dim);font-size:12px;margin:14px 0}
 </style>
 </head>
 <body>
@@ -181,14 +175,13 @@
     <input type="range" id="bass" min="-12" max="12" step="0.5" value="0" style="width:84px">
     <span class="meta" title="High shelf at 3 kHz">TREBLE</span>
     <input type="range" id="treb" min="-12" max="12" step="0.5" value="0" style="width:84px">
-    <button class="btn tiny" id="eqreset">FLAT</button>
+    <button class="btn tiny" id="eqreset" title="Listening only \u2014 changes nothing on disk. If every track sounds bassy it is the speakers; if one does it is the track.">FLAT</button>
     <span class="meta">VOL</span><input type="range" id="vol" min="0" max="1" step="0.01" value="0.75">
   </div>
   <nav id="tabs">
     <button data-tab="tracks" class="on">Tracks</button>
     <button data-tab="fx">Effects</button>
-    <button data-tab="layering">Layering</button>
-    <button data-tab="instruments">Instruments</button>
+      <button data-tab="instruments">Instruments</button>
   </nav>
 </header>
 <main id="main"></main>
@@ -770,10 +763,7 @@ function fxCard(f) {
     }
     wait.remove();
     ibox.append(lanes);
-    ibox.append(el('div', 'hint',
-      'Each lane is one line of the file, at the level it sits at in the stack. The tall '
-      + 'ones are doing the obvious work; the short one at the front is usually the '
-      + 'transient, which matters far more than its height suggests.'));
+    ibox.append(el('div', 'hint', 'One lane per line of the file, at its real level in the stack.'));
   };
   c.append(insp);
 
@@ -831,7 +821,7 @@ function render() {
   if (tab === 'instruments') {
     const g = el('div', 'card');
     g.append(el('h2', null, 'Instruments'));
-    g.append(el('div', 'meta', 'An instrument is a list of layers that get summed. That is all layering is.'));
+    g.append(el('div', 'meta', 'An instrument is a list of layers, summed.'));
     for (const e of ERAS) {
       g.append(el('h3', null, e));
       const t = el('table');
@@ -850,69 +840,7 @@ function render() {
       g.append(t);
     }
     main.append(g);
-    return;
   }
-
-  // layering
-  const c = el('div', 'card prose');
-  c.innerHTML = `
-<h2 style="font-size:19px">How a sound gets built</h2>
-<p>Everything in this library is a stack of layers summed together. Nothing here uses reverb
-to sound big or compression to sound loud. It sounds like an instrument because three or four
-cheap things are playing at once, and each one is doing a job the others cannot.</p>
-
-<h3>The four jobs</h3>
-<ul>
-<li><strong>Pitch.</strong> The layer carrying the note. On its own it is a test tone.</li>
-<li><strong>Body.</strong> The same note an octave down, usually on a rounder wave. A 25% pulse has
-almost no energy below its fundamental; a triangle underneath puts it back. In
-<code>lead</code> this one layer is the largest single improvement in the file.</li>
-<li><strong>Transient.</strong> 10–30 ms of filtered noise at the very front. The ear locates an event
-by its first 20 ms, so this layer does far more work than its gain suggests. It is the
-pick, the stick, the slap of the water, the click of the switch.</li>
-<li><strong>Width.</strong> A detuned copy, or a delayed one. Two saws seven cents apart beat against
-each other, and that beating is the entire meaning of the word "wide". At zero cents it is
-one saw.</li>
-</ul>
-
-<div class="note">Open the <strong>LAYERS</strong> track. It is four bars, played six times, with one
-more voice added each pass: bare pulse, then body, then bass, then arpeggio, then drums, then a
-counter-line. Nothing gets louder. By the last pass it sounds like a band.</div>
-
-<h3>What changes between the eras</h3>
-<p>The eras are console generations, not audio bit depth. <code>8bit</code> is the NES 2A03 and
-<code>16bit</code> is the SNES/Genesis class of hardware. A score names instruments from one era;
-rendering it in the other substitutes them through a table, which is why one file plays on both.</p>
-<ul>
-<li><strong>Pitch.</strong> 8-bit quantises every note to the eleven-bit period register, so pitches
-drift sharp near the top of the range. That sourness is character and it is kept on purpose.</li>
-<li><strong>Envelope.</strong> 8-bit counts down in fifteen steps. On a short note you hear the stairs.
-16-bit gets a real ADSR.</li>
-<li><strong>Voices.</strong> 8-bit is pulse, pulse, triangle, noise. 16-bit adds four-operator FM,
-detuned saw stacks, and additive drawbars.</li>
-<li><strong>Space.</strong> 8-bit is mono and bone dry. 16-bit is stereo with an echo send, and that
-wetness is half of why the generation sounds like it does.</li>
-<li><strong>Drums.</strong> The 8-bit kick is crushed to four bits, because it was a tiny sample ROM.
-The 16-bit snare adds a tuned tone layer under the noise — that tone is the "crack", and
-without it a snare is a hiss.</li>
-</ul>
-
-<h3>Trying it</h3>
-<ul>
-<li>Play any track, then hit the other era button <em>while it is playing</em>. Both renders are
-running in sync and only the gain moves, so you land in the same bar.</li>
-<li>On the Effects tab, walk a stack up one layer at a time. <code>splash</code>, <code>metal</code>
-and <code>laser</code> are the instructive ones.</li>
-<li><code>sound explain lead</code> prints any instrument's layers in the terminal.</li>
-</ul>
-
-<h3>The rule that matters</h3>
-<p>Every render is loudness-matched before you hear it — tracks to −18 dBFS RMS, effects to −3 dBFS
-peak. Without that the comparison is worthless, because the louder of any two takes is judged
-better regardless of which is actually better, and the 16-bit rig renders several dB quieter than
-the 8-bit one on the same score. What you are hearing between the two buttons is timbre, and only
-timbre.</p>`;
-  main.append(c);
 }
 
 // -------------------------------------------------------------------- wiring --
