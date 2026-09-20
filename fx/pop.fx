@@ -1,5 +1,5 @@
-# A pop. 40 ms, rising, and nothing else. The most reusable sound in casual
-# games and the hardest to overdo.
+# A pop. 40 ms, rising.
+
 @fx pop
   desc  A bubble-pop for matches and pickups
   tags  puzzle casual ui

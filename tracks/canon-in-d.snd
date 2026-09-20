@@ -1,13 +1,8 @@
-# Pachelbel -- Canon in D. Public domain.
-# Arranged: the eight-bar ground bass exactly as written, the harpsichord-style
-# chord figuration above it, and the first violin's entry in whole notes. The
-# later divisions are not transcribed here.
+# Pachelbel, Canon in D. Public domain.
 #
-# THIS IS THE FILE TO READ IF YOU WANT TO SEE WHAT @section AND @order BUY.
-# The ground is eight bars. Written out four times it would be 32 bars of
-# duplicated text that can drift apart under editing. Written once and ordered
-# `ground ground+melody ...`, one edit to the bass changes every repeat, and
-# the diff shows one line.
+# The eight-bar ground bass as written, chord figuration above it, and the
+# first violin's entry in whole notes. Later divisions are not transcribed.
+# D major, 64 BPM, 24 bars, 4/4. Three sections: ground, entry, second.
 
 @track canon-in-d
   name   CANON IN D
@@ -58,8 +53,7 @@
   g   .   .   .   .   .   .   .   g   .   .   .   .   .   .   .
   a   .   .   .   .   .   .   .   a   .   .   .   .   .   .   .
 
-# The first violin, in whole notes -- one per bar of the ground, which is the
-# canon's entire premise.
+# First violin: one whole note per bar of the ground.
 @voice violin1 inst=strings mix=0.175 pan=-0.22
   f#5 .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
   e5  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
@@ -101,10 +95,7 @@
   g4  .   .   .   .   .   .   .   f#4 .   .   .   .   .   .   .
   g4  .   .   .   .   .   .   .   e4  .   .   .   .   .   .   .
 
-# The canon: the same line, one statement behind. This is the piece's whole
-# idea, and in this format it is literally the same eight lines pasted into a
-# second voice -- which is the clearest possible demonstration that a score is
-# text you can manipulate.
+# Second violin: the same line, entering one bar later.
 @voice violin2 inst=strings mix=0.135 pan=0.28
   -   -   -   -   -   -   -   -   -   -   -   -   -   -   -   -
   f#5 .   .   .   .   .   .   .   .   .   .   .   .   .   .   .

@@ -1,5 +1,5 @@
-# A warp. Pitch rising while the filter falls -- two opposed sweeps is what
-# makes it feel like travel rather than a siren.
+# A warp. Pitch rises while the filter falls.
+
 @fx warp
   desc  Warping between levels
   tags  arcade scifi movement

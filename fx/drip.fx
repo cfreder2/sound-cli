@@ -1,9 +1,6 @@
-# A single water drop.
-#
-# The most counter-intuitive sound in the library: a drip is a RISING pitch,
-# not a falling one. The cavity left behind by the drop shrinks as it closes,
-# and a shrinking resonator goes UP. Sweep it down and it stops sounding like
-# water at all -- it sounds like a bubble popping the wrong way round.
+# One drop of water landing. Pitch rises: the cavity the drop leaves shrinks as
+# it closes, and a shrinking resonator rises in pitch.
+
 @fx drip
   desc  One drop of water landing
   tags  water ambience cave

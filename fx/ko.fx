@@ -1,5 +1,5 @@
-# A knockout. The impact, then the room ringing -- the ring is the point, and
-# it is the one place a long decay belongs on a hit.
+# A knockout. The impact, then a long ring.
+
 @fx ko
   desc  A knockout blow
   tags  fighting combat

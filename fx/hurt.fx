@@ -1,4 +1,5 @@
-# Damage taken. Falling, and slightly dissonant: a minor second under the tone.
+# Taking damage. Falling two-tone a minor second apart.
+
 @fx hurt
   desc  Taking damage -- a falling, sour two-tone
   tags  damage

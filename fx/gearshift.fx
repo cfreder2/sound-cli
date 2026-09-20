@@ -1,4 +1,5 @@
-# A gear change. Mechanical clunk, then the engine picking up in the new ratio.
+# Shifting gear. Mechanical clunk, then the engine in the new ratio.
+
 @fx gearshift
   desc  Shifting gear
   tags  racing vehicle mechanical

@@ -96,7 +96,7 @@ See [FORMAT.md](FORMAT.md).
 
 ## What ships
 
-**Tracks** — five public-domain classical pieces, three imported from the games,
+**Tracks** — five public-domain classical pieces, two imported from the games,
 and two originals.
 
 | | |
@@ -106,13 +106,13 @@ and two originals.
 | `ode-to-joy` | Beethoven, Symphony 9. Almost all melody and no rhythm, so the A/B is purely timbre |
 | `greensleeves` | Traditional, c. 1580. 6/8, both strains |
 | `canon-in-d` | Pachelbel. The ground bass, the violin entry, and the canon at one statement's distance — the file to read for what `@section` and `@order` buy |
-| `scramble` | **From [VECTRENCH](https://github.com/cfreder2/VECTRENCH)** — its training-canyon theme. Nineteen order slots over nine sections: two minutes from seventy bars, and no four bars repeat unchanged |
-| `void` | **From [VECTRENCH](https://github.com/cfreder2/VECTRENCH)** — deep space. Its opposite: 96 BPM, no arpeggio at all, harmony from held tritone dyads, a pedal bass that shudders rather than walks |
-| `overworld` | **From [AXI](https://github.com/cfreder2/axi)** — its field theme. Did not exist as a score; AXI keeps it as raw MIDI arrays and builds the bass at runtime, so this is that music written out |
+| `scramble-1-vectrench` | From [VECTRENCH](https://github.com/cfreder2/VECTRENCH), its training-canyon theme. A minor, 150 BPM, 74 bars, nine sections over nineteen order slots |
+| `overworld-1-axi` | From [AXI](https://github.com/cfreder2/axi), overworld theme 1. Stored there as MIDI arrays with the bass built at runtime; transcribed here as a score |
 | `runner` | Original stage theme, native 8-bit. Sections, fills, sweeps, an arrangement |
 | `layers` | **A teaching track.** Four bars, six times, one more voice each pass |
 
-**Effects** — 72, each defined in both eras in the same file.
+**Effects** — 72, each defining both eras in the same file. The previewer has a
+search box (`/` to focus) that filters on name, description and tags.
 
 | | |
 | --- | --- |

@@ -1,5 +1,5 @@
-# A shield coming up. Two detuned tones beating against each other at about
-# 6 Hz -- that beat is what makes it read as energy rather than as a note.
+# An energy shield. Two detuned tones beating at about 6 Hz.
+
 @fx forcefield
   desc  An energy shield engaging
   tags  scifi state

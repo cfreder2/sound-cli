@@ -1,5 +1,6 @@
-# A pebble in a pond. Same shape as `splash`, an octave up and a third as long
-# -- scale in sound design is mostly pitch and duration, not level.
+# A small object hitting water. Same shape as splash, an octave up and a third
+# as long.
+
 @fx splash-small
   desc  A small object hitting water
   tags  water impact

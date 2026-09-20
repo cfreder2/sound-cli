@@ -1,5 +1,5 @@
-# A dash. A noise band sweeping up then away, panned across -- the pan is the
-# movement, and in mono it just sounds like wind.
+# A dash or dodge. Noise band sweeping up, panned across the stereo field.
+
 @fx dash
   desc  A dash or quick dodge
   tags  movement platformer fighting

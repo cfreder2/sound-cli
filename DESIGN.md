@@ -249,7 +249,7 @@ import { Sound, Music } from './sound/runtime.js';
 const sound = new Sound();          // context, compressor, master, resume path
 const music = new Music(sound, { era: '8bit' });
 
-music.load(TRACKS.scramble);
+music.load(TRACKS['scramble-1-vectrench']);
 music.start();
 music.setIntensity(throttle);       // arrangement density, not volume
 music.setRate(1.3);                 // tempo follows the throttle
@@ -285,7 +285,7 @@ fails a gate instead of shipping.
 `sound prompt boss-theme` prints the full text an agent is sent: the format
 spec, the project's era and key, the chord table, the available instruments,
 the bar count, the minimum duration, and any reference track quoted in full.
-`--reference scramble` is how "like the canyon theme, but heavier" becomes
+`--reference scramble-1-vectrench` is how "like the canyon theme, but heavier" becomes
 something concrete — the model gets the actual bars.
 
 Input comes in four shapes and they all become the same score:
@@ -371,7 +371,7 @@ plays it. The catalogue ports from both games as data, and the two `_tone` /
    `sound runtime` into VECTRENCH; delete `src/music.js` and `src/nes.js`;
    the game plays from the generated module. Score book moves to `tracks/`.
 3. **AXI.** Delete the vendored `nes.js` and the second `Music` class. AXI's
-   hardcoded `LEAD` / `CHORDS` / `ROOTS` arrays become one `tracks/overworld.yaml`.
+   hardcoded `LEAD` / `CHORDS` / `ROOTS` arrays become one `tracks/overworld-1-axi.snd`.
    This is the first real proof the library serves a second game.
 4. **`view`, `record`, the keyboard.** Port STUDIO. VECTRENCH keeps its
    in-game composer by importing the same UI module.

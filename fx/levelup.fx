@@ -1,5 +1,5 @@
-# Levelling up. A full major arpeggio to the octave with a shimmer on top --
-# longer than a pickup because it is allowed to interrupt.
+# Level up. Major arpeggio to the octave, with a shimmer above.
+
 @fx levelup
   desc  Level up -- a rising fanfare
   tags  rpg reward

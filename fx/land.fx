@@ -1,4 +1,5 @@
-# Landing from a jump. Shorter and brighter than a thud -- boots, not a body.
+# Landing after a jump. Shorter and brighter than thud.
+
 @fx land
   desc  Landing after a jump
   tags  movement platformer

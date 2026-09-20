@@ -1,5 +1,5 @@
-# Wrong answer. A minor second, held -- the most reliably unpleasant interval
-# there is, which is exactly the job.
+# An incorrect answer. A minor second, held.
+
 @fx wrong
   desc  An incorrect answer or invalid action
   tags  puzzle ui

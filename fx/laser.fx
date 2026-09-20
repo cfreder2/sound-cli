@@ -1,9 +1,6 @@
-# Laser shooting.
-#
-# The archetypal chip "pew" is one pulse falling fast. What stops it sounding
-# thin is the octave-down layer, and what makes it sound like it LEFT
-# something is the noise transient on the very front -- 40 ms of metal that
-# you do not hear as noise, only as impact.
+# A single energy shot. Falling pulse, an octave-down layer, and a noise
+# transient at the front.
+
 @fx laser
   desc  A single energy shot
   tags  weapon scifi

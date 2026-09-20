@@ -1,6 +1,5 @@
-# Going under. Everything above 700 Hz disappears, which is the whole effect --
-# water is a low-pass filter and a game telling you that you are submerged is
-# mostly telling you what it has taken away.
+# Submerging. Everything above ~700 Hz is removed.
+
 @fx underwater
   desc  Submerging -- the world goes muffled
   tags  water ambience state

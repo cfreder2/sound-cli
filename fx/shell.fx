@@ -1,5 +1,5 @@
-# A shell casing on concrete. Three bounces, each quieter and closer together,
-# which is what "bouncing" means as a rhythm.
+# A spent casing on concrete. Three bounces, each quieter and closer together.
+
 @fx shell
   desc  A spent casing hitting the floor
   tags  weapon shooter detail

@@ -1,5 +1,5 @@
-# A spring. Rising pitch plus a fast wobble -- the wobble IS the spring, and
-# without it you have a jump sound.
+# A spring. Three rising tones; the wobble between them is the spring.
+
 @fx bounce
   desc  A spring or bouncy pad
   tags  platformer

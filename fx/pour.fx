@@ -1,5 +1,5 @@
-# Pouring. Sustained mid noise with the filter wandering up as the vessel
-# empties and its air column shortens.
+# Liquid poured. Sustained mid noise, filter rising as the vessel empties.
+
 @fx pour
   desc  Liquid being poured
   tags  water item

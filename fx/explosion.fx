@@ -1,8 +1,6 @@
-# Explosion.
-#
-# Three timescales stacked: a 10 ms crack, a 400 ms body falling through the
-# filter, and a low sine drop for the pressure wave. Skip the crack and it
-# sounds distant; skip the sine and it sounds small.
+# A large explosion. Three timescales: a 10 ms crack, a 400 ms body falling
+# through the filter, and a low sine drop.
+
 @fx explosion
   desc  A big boom -- crack, body, and a pressure drop
   tags  weapon impact

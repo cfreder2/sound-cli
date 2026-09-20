@@ -1,9 +1,6 @@
-# Metal.
-#
-# Metal is INHARMONIC and that is the entire secret. A bell, a pipe, a girder
-# and a sword all ring at ratios that are not whole numbers -- here 1 : 2.76 :
-# 5.40, which are close to a real bar's modes. Stack three harmonic partials
-# instead and you get an organ.
+# Metal struck. Partials at roughly 1 : 2.76 : 5.40, which approximates the
+# modes of a struck bar. Harmonic ratios instead would read as an organ.
+
 @fx metal
   desc  Metal struck -- a clang with inharmonic partials
   tags  impact material

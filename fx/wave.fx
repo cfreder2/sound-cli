@@ -1,5 +1,5 @@
-# A wave on a shore. Slow in, slow out -- the two-second swell is the sound,
-# and any transient at all ruins it.
+# A wave breaking. Two overlapping noise sweeps, in then out, over ~2.7 s.
+
 @fx wave
   desc  A wave breaking on a shore
   tags  water ambience loop

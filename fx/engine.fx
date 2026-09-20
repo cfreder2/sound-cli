@@ -1,5 +1,5 @@
-# An engine burst. Two detuned saws beating against each other is the whole
-# sound of a motor; the beat rate IS the roughness.
+# An engine revving. Two detuned saws; the beat rate is the roughness.
+
 @fx engine
   desc  An engine revving
   tags  vehicle

@@ -1,5 +1,5 @@
-# A scanner sweep. Three pulses at a steady interval, each a step higher --
-# regularity is the point here, unlike the drips.
+# A scanner sweep. Three pulses at a steady interval, each a step higher.
+
 @fx scan
   desc  A scanner or radar sweep
   tags  scifi ui

@@ -1,10 +1,8 @@
-# Greensleeves -- traditional English, c. 1580. Public domain.
-# Arranged in A minor with the usual Am-G-Am-E harmonisation.
+
+# Greensleeves. Traditional English, c. 1580. Public domain.
 #
-# 6/8, so a bar here is TWO written measures of six eighths each. The gap in
-# the middle of every line is the barline. Note how much of the tune is one
-# note per column and how little of it is held: 6/8 is a lilting metre and the
-# lilt lives in the placement, which you can see in the grid.
+# A minor, 82 BPM, 6/8. A bar here is two written measures of six eighths; the
+# gap in the middle of each line is the barline. Two strains, played A B A B.
 
 @track greensleeves
   name   GREENSLEEVES

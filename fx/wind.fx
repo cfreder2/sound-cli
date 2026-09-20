@@ -1,5 +1,5 @@
-# Wind. One narrow noise band wandering slowly. Everything about wind is in
-# how slowly the filter moves -- fast and it is a jet.
+# Wind. One narrow noise band wandering slowly.
+
 @fx wind
   desc  Wind through an open place
   tags  ambience nature loop

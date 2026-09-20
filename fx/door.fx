@@ -1,4 +1,5 @@
-# A heavy door. Low noise sliding, then the latch.
+# A heavy door opening and latching.
+
 @fx door
   desc  A heavy door opening and latching
   tags  world

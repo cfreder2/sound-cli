@@ -1,8 +1,5 @@
-# A body hitting the ground.
-#
-# A thud is a low tone with NO ring and a noise transient that is gone in 15 ms.
-# Give it any sustain at all and it becomes a drum; raise its pitch and it
-# becomes a knock. The line between thud, knock and drum is 30 Hz and 80 ms.
+# A soft heavy impact. Low tone with no ring, plus a ~15 ms noise transient.
+
 @fx thud
   desc  A soft heavy impact -- a body, a sack, a landing
   tags  impact body

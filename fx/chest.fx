@@ -1,4 +1,5 @@
-# A chest opening: the hinge creaking, then the lid stopping, then the reward.
+# A chest opening: hinge, lid stopping, then a two-note reward.
+
 @fx chest
   desc  A treasure chest opening
   tags  rpg reward world

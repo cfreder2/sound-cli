@@ -1,4 +1,5 @@
-# Footstep. Almost entirely transient -- a step you can hear ringing is wrong.
+# One footstep on dirt. Almost entirely transient.
+
 @fx footstep
   desc  A single footstep on dirt
   tags  movement material

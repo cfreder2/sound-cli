@@ -1,5 +1,5 @@
-# A reload. Three mechanical events at uneven spacing: magazine out, magazine
-# in, slide released. The spacing carries the whole gesture.
+# Magazine out, magazine in, slide. Three events at uneven spacing.
+
 @fx reload
   desc  Magazine out, magazine in, slide
   tags  weapon shooter mechanical

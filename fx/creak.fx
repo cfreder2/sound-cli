@@ -1,5 +1,5 @@
-# A creak. A narrow band of noise crawling upward -- the slowness is the
-# tension, and any transient at the front destroys it.
+# Wood or a hinge creaking. A narrow noise band moving slowly upward.
+
 @fx creak
   desc  Wood or a hinge creaking
   tags  horror world material

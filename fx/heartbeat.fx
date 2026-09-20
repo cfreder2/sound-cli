@@ -1,5 +1,5 @@
-# A heartbeat. Two thumps, the second quieter and 320 ms later -- lub-DUP. Get
-# the spacing wrong and it reads as a drum machine.
+# A heartbeat. Two thumps, the second quieter and 320 ms later.
+
 @fx heartbeat
   desc  A heartbeat -- low health, tension
   tags  horror state loop

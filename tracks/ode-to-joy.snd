@@ -1,11 +1,8 @@
-# Beethoven -- Symphony No. 9, 4th movement, the "Ode to Joy" theme.
-# Public domain. Transposed to C major and harmonised in the usual way; the
-# melody is exact.
+
+# Beethoven, Symphony No. 9, 4th movement, "Ode to Joy" theme. Public domain.
 #
-# Sixteen bars of 4/4, sixteen sixteenths each, so a quarter note is four
-# columns. Almost all melody and almost no rhythm, which makes it the clearest
-# thing in the book for hearing what the INSTRUMENT does -- run it 8-bit
-# against 16-bit and the difference is entirely timbre.
+# Transposed to C major and harmonised conventionally. The melody is exact.
+# 112 BPM, 16 bars, 4/4, sixteen sixteenths per bar. Two sections: A and B.
 
 @track ode-to-joy
   name   ODE TO JOY

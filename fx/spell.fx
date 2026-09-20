@@ -1,5 +1,5 @@
-# Casting. The charge is a rising filter on noise; the release is the tone.
-# Reverse them and it sounds like a thing being un-cast.
+# A spell cast. Rising filtered noise as the charge, then the tone on release.
+
 @fx spell
   desc  A spell being cast
   tags  rpg magic fantasy

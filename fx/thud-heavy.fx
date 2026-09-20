@@ -1,5 +1,5 @@
-# Something very large landing. Longer, lower, and with a second bloom 90 ms in
-# -- that delayed swell is what makes a thing read as massive rather than loud.
+# A large impact. Longer and lower than thud, with a second bloom at 90 ms.
+
 @fx thud-heavy
   desc  A massive impact -- a boss landing, a gate dropping
   tags  impact body boss

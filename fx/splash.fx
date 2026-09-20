@@ -1,9 +1,5 @@
-# Water splashing.
-#
-# A splash is TWO events, not one: the body going in, and the spray coming
-# back down. The 8-bit version can only afford a short second layer; the
-# 16-bit one lets the spray ring on, spreads it in stereo, and adds a low
-# thunk for the mass of the thing that fell in.
+# Water splashing. Two events: the body entering, then spray falling back.
+
 @fx splash
   desc  Water splashing -- body impact, then spray falling back
   tags  water impact

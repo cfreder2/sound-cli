@@ -1,4 +1,5 @@
-# A stream of bubbles. Six, rising in pitch overall as they get smaller.
+# Six bubbles, rising in pitch overall as they get smaller.
+
 @fx bubbles
   desc  A stream of bubbles underwater
   tags  water underwater loop

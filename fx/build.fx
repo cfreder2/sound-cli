@@ -1,5 +1,5 @@
-# Placing a building. Wood and stone together -- the transient says "set down"
-# and the low tone says "heavy".
+# Placing a structure. Wood and stone transient plus a low tone.
+
 @fx build
   desc  Placing a structure
   tags  strategy sim world

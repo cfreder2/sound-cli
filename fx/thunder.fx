@@ -1,5 +1,5 @@
-# Thunder. Long, low, and moving -- the filter crawling downward over a full
-# second is what makes it read as distance rather than as a snare.
+# A distant roll of thunder. The filter falls over about 1.5 s.
+
 @fx thunder
   desc  A distant roll of thunder
   tags  weather ambience

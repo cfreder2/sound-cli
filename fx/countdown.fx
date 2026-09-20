@@ -1,4 +1,5 @@
-# A race countdown tone. One of the three; play it three times then `go`.
+# One countdown beep. Play three, then a start tone.
+
 @fx countdown
   desc  A countdown beep
   tags  racing ui

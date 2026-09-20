@@ -1,9 +1,5 @@
-# Machine guns.
-#
-# A burst is the clearest demonstration of what `at=` is for: six shots laid
-# 65 ms apart, each one three layers. The noise bed offset differs per line,
-# so no two shots are sample-identical -- which is the difference between a
-# machine gun and a stutter.
+# A six-round burst, 65 ms apart. Each shot uses a different noise bed offset.
+
 @fx machinegun
   desc  A six-round burst
   tags  weapon gun

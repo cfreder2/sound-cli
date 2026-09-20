@@ -1,5 +1,5 @@
-# Sword swing. A whoosh is a noise band sweeping UP then the tail falling --
-# here the up-sweep is the swing and the metal ring is the blade.
+# A blade swung. Noise band sweeping up, then the metal ring.
+
 @fx slash
   desc  A blade swung, and its ring
   tags  weapon melee

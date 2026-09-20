@@ -1,4 +1,5 @@
-# Power-up. An arpeggio climbing a major triad, then the octave.
+# Rising major arpeggio to the octave.
+
 @fx powerup
   desc  Power-up -- a rising major arpeggio
   tags  pickup reward

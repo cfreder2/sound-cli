@@ -1,5 +1,5 @@
-# One bubble. Rising sine, very short, almost no noise -- a bubble is nearly a
-# pure tone, which is why it reads as comic rather than physical.
+# One bubble rising and popping. Almost a pure tone.
+
 @fx bubble
   desc  A single bubble rising and popping
   tags  water underwater

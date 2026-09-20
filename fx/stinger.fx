@@ -1,5 +1,5 @@
-# A horror stinger. A dissonant cluster -- a tritone and a minor second in the
-# same chord -- with a hard attack and a long tail.
+# A jump-scare sting. A cluster containing a tritone and a minor second.
+
 @fx stinger
   desc  A jump-scare sting
   tags  horror

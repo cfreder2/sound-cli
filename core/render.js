@@ -322,12 +322,15 @@ export function renderTrack(track, {
   const totalWork = Math.max(1, track.voices.length * steps);
   let workDone = 0;
   let lastReport = 0;
+  // The mix buffer is handed to the callback so a caller can read peaks out of
+  // it while the render is still running -- which is what lets the previewer
+  // draw the waveform filling in rather than a spinner.
   const report = () => {
     if (!onProgress) return;
     const frac = (workDone / totalWork) * 0.95;
     if (frac - lastReport < 0.02) return;
     lastReport = frac;
-    onProgress(frac);
+    onProgress(frac, mix);
   };
 
   for (const voice of track.voices) {
@@ -431,7 +434,7 @@ export function renderTrack(track, {
   // `ceiling: Infinity` leaves the mix untouched, which analysis needs: a
   // limiter engaging during a calibration measurement means calibrating
   // against the limiter rather than against the instrument.
-  if (onProgress) onProgress(1);
+  if (onProgress) onProgress(1, mix);
   const { peak, reducedDb } = Number.isFinite(ceiling)
     ? limit(mix.L, mix.R, ceiling, rate)
     : { peak: mix.L.reduce((m, v, i) => Math.max(m, Math.abs(v), Math.abs(mix.R[i])), 0), reducedDb: 0 };

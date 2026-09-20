@@ -1,5 +1,5 @@
-# Teleporting. Everything sweeps up and away and then there is nothing -- the
-# silence at the end is doing as much work as the sweep.
+# Teleporting out. Everything sweeps up and away, then stops.
+
 @fx teleport
   desc  Teleporting out
   tags  scifi magic movement

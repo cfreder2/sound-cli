@@ -1,5 +1,5 @@
-# Game over. Four descending tones, the last one held and sour -- a minor sixth
-# under the root, which is the classic arcade way of saying no.
+# Game over. Four descending tones, the last held.
+
 @fx gameover
   desc  Game over
   tags  arcade state

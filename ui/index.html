@@ -49,6 +49,12 @@
   nav button{border:0;border-bottom:2px solid transparent;background:none;color:var(--dim);
     font:600 12px/1 var(--mono);letter-spacing:.12em;padding:11px 14px;cursor:pointer}
   nav button.on{color:var(--fg);border-bottom-color:var(--a)}
+  nav .sp{flex:1}
+  #q{background:var(--panel);border:1px solid var(--line);border-radius:6px;color:var(--fg);
+    font:12px/1 var(--mono);padding:8px 11px;width:210px;margin:0 0 6px}
+  #q::placeholder{color:var(--dimmer)}
+  #q:focus{outline:none;border-color:var(--b)}
+  #qn{color:var(--dimmer);font:10px/1 var(--mono);letter-spacing:.08em;margin:0 0 6px 9px;align-self:center}
 
   .grid{display:grid;grid-template-columns:270px 1fr;gap:18px;align-items:start}
   @media(max-width:820px){.grid{grid-template-columns:1fr}}
@@ -191,6 +197,9 @@
     <button data-tab="tracks" class="on">Tracks</button>
     <button data-tab="fx">Effects</button>
       <button data-tab="instruments">Instruments</button>
+    <span class="sp"></span>
+    <span id="qn"></span>
+    <input id="q" type="search" placeholder="search" autocomplete="off" spellcheck="false">
   </nav>
 </header>
 <main id="main"></main>
@@ -297,7 +306,7 @@ function spawn() {
     const m = ev.data;
     const task = pending.get(m.job);
     if (!task) return;
-    if (m.type === 'progress') { task.onProgress?.(m.frac); return; }
+    if (m.type === 'progress') { task.onProgress?.(m.frac, m.peaks); return; }
     pending.delete(m.job);
     task.slot.busy = false;
     pump();
@@ -364,17 +373,24 @@ async function buffers(kind, id, params = {}, onProgress = null) {
   const text = sourceOf(kind, id);
   const base = toOpts(kind, params);
   const parts = ERAS.map(() => 0);
+  const peaks = ERAS.map(() => null);
   const report = () => {
     const f = parts.reduce((x, y) => x + y, 0) / parts.length;
     setBar(f);
-    onProgress?.(f);
+    // Hand back the envelope for whichever era is selected, so the canvas
+    // fills in with the audio actually being listened to.
+    onProgress?.(f, peaks[ERAS.indexOf(era)] || peaks.find(Boolean) || null);
   };
 
-  const p = Promise.all(ERAS.map(async (era, i) => {
-    const ab = await runRender(kind, text, id, { ...base, era }, (f) => { parts[i] = f; report(); });
+  const p = Promise.all(ERAS.map(async (e, i) => {
+    const ab = await runRender(kind, text, id, { ...base, era: e }, (f, pk) => {
+      parts[i] = f;
+      if (pk) peaks[i] = pk;
+      report();
+    });
     return audio().decodeAudioData(ab);
-  })).then((r) => { setBar(1, true); onProgress?.(1); return r; },
-    (e) => { setBar(1, true); onProgress?.(1); throw e; });
+  })).then((r) => { setBar(1, true); onProgress?.(1, null); return r; },
+    (e2) => { setBar(1, true); onProgress?.(1, null); throw e2; });
 
   cache.set(key, p);
   return p;
@@ -550,6 +566,53 @@ function drawWave(cv, buf, pos, alpha = 1) {
   if (pos != null) {
     g.globalAlpha = Math.max(0.5, alpha); g.fillStyle = '#fff';
     g.fillRect(Math.round(pos * w), 0, 1.5, h);
+  }
+}
+
+/**
+ * The load state, drawn where the waveform will be.
+ *
+ * A percentage in the corner of a transport row is easy to miss; this puts it
+ * in the panel you are already looking at, and fills in the envelope as the
+ * renderer produces it, so the thing you are waiting for is also the thing
+ * showing you the wait.
+ */
+function drawLoading(cv, frac, peaks, label) {
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  const w = cv.clientWidth, h = cv.clientHeight;
+  cv.width = w * dpr; cv.height = h * dpr;
+  const g = cv.getContext('2d');
+  g.scale(dpr, dpr);
+  g.clearRect(0, 0, w, h);
+  const col = era === '8bit' ? '#ffb74d' : '#6fe6ff';
+
+  if (peaks) {
+    const n = peaks.length / 2;
+    g.strokeStyle = col;
+    g.globalAlpha = 0.34;
+    g.lineWidth = 1;
+    g.beginPath();
+    for (let x = 0; x < w; x++) {
+      const b = Math.min(n - 1, Math.floor((x / w) * n));
+      g.moveTo(x + 0.5, h / 2 - peaks[b * 2 + 1] * h * 0.46);
+      g.lineTo(x + 0.5, h / 2 - peaks[b * 2] * h * 0.46);
+    }
+    g.stroke();
+  }
+
+  g.globalAlpha = 1;
+  g.fillStyle = col;
+  g.fillRect(0, h - 3, w * frac, 3);
+
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillStyle = col;
+  g.font = `600 ${Math.min(46, Math.round(h * 0.52))}px ui-monospace,SFMono-Regular,Menlo,monospace`;
+  g.fillText(`${Math.round(frac * 100)}%`, w / 2, h / 2 - 6);
+  if (label) {
+    g.fillStyle = '#8b9aa7';
+    g.font = '10px ui-monospace,SFMono-Regular,Menlo,monospace';
+    g.fillText(label, w / 2, h / 2 + 20);
   }
 }
 
@@ -769,10 +832,12 @@ function trackView(t) {
     bPlay.disabled = true;
     const started = Date.now();
     try {
-      mixBufs = await buffers('track', t.id, {}, (frac) => {
-        time.textContent = frac >= 1 ? '0:00 / 0:00' : `${Math.round(frac * 100)}%`;
-        barno.textContent = frac >= 1 ? ''
-          : `synthesising ${t.seconds}s · both eras · ${((Date.now() - started) / 1000).toFixed(1)}s`;
+      mixBufs = await buffers('track', t.id, {}, (frac, peaks) => {
+        if (frac >= 1) { time.textContent = '0:00 / 0:00'; barno.textContent = ''; return; }
+        time.textContent = '';
+        barno.textContent = '';
+        drawLoading(cv, frac, peaks,
+          `${t.seconds}s · 8-bit + 16-bit · ${((Date.now() - started) / 1000).toFixed(1)}s`);
       });
     } catch (e) {
       time.textContent = 'failed';
@@ -902,6 +967,18 @@ function fxCard(f) {
 
 let tab = 'tracks';
 let pick = { tracks: null, fx: null };
+let query = '';
+
+/** Substring match over a row's name, description and tags. */
+const hit = (row, ...fields) => {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  return fields.some((f) => String(f ?? '').toLowerCase().includes(q));
+};
+const setCount = (shown, total) => {
+  const n = $('#qn');
+  if (n) n.textContent = query ? `${shown} of ${total}` : '';
+};
 
 function render() {
   const main = $('#main');
@@ -910,7 +987,9 @@ function render() {
   if (tab === 'tracks') {
     const g = el('div', 'grid');
     const list = el('div', 'list');
-    for (const t of manifest.tracks) {
+    const shown = manifest.tracks.filter((x) => hit(x, x.id, x.name, x.tags.join(' ')));
+    setCount(shown.length, manifest.tracks.length);
+    for (const t of shown) {
       const b = el('button', pick.tracks === t.id ? 'on' : '');
       b.append(el('div', 't', esc(t.name)));
       b.append(el('div', 's', `${t.seconds}s · ${t.bars} bars · ${t.voices.length}v · ${esc(t.tags[0] || '')}`));
@@ -918,7 +997,8 @@ function render() {
       list.append(b);
     }
     g.append(list);
-    const t = manifest.tracks.find((x) => x.id === pick.tracks) || manifest.tracks[0];
+    const t = shown.find((x) => x.id === pick.tracks) || shown[0] || manifest.tracks[0];
+    if (!t) { main.append(g); return; }
     pick.tracks = t.id;
     nativeEra = t.era;
     g.append(trackView(t));
@@ -930,13 +1010,11 @@ function render() {
 
   nativeEra = null; markNative();
   if (tab === 'fx') {
-    const note = el('div', 'note',
-      'Every effect exists twice — one <code>@era</code> block per console generation, in the same file. '
-      + 'The numbered strip under each pair is the layer stack: click 3 to hear layers 1 through 3, '
-      + 'shift-click 3 to hear only layer 3, at the level it actually sits at in the mix.');
-    main.append(note);
     const g = el('div', 'fxgrid');
-    for (const f of manifest.fx) g.append(fxCard(f));
+    const shown = manifest.fx.filter((x) => hit(x, x.id, x.desc, (x.tags || []).join(' ')));
+    setCount(shown.length, manifest.fx.length);
+    for (const f of shown) g.append(fxCard(f));
+    if (!shown.length) g.append(el('div', 'meta', `nothing matches "${esc(query)}"`));
     main.append(g);
     return;
   }
@@ -945,11 +1023,14 @@ function render() {
     const g = el('div', 'card');
     g.append(el('h2', null, 'Instruments'));
     g.append(el('div', 'meta', 'An instrument is a list of layers, summed.'));
+    setCount(manifest.instruments.filter((x) => hit(x, x.name, x.desc)).length,
+      manifest.instruments.length);
     for (const e of ERAS) {
       g.append(el('h3', null, e));
       const t = el('table');
       t.innerHTML = '<tr><th>name</th><th>layers</th><th>what it is</th></tr>';
-      for (const i of manifest.instruments.filter((x) => x.era === e)) {
+      const rows = manifest.instruments.filter((x) => x.era === e && hit(x, x.name, x.desc));
+      for (const i of rows) {
         const L = (i.detail.layers || []).map((l) => {
           const bits = [l.osc];
           if (l.duty) bits.push(`${l.duty * 100}%`);
@@ -974,6 +1055,7 @@ $('#tabs').onclick = (e) => {
   document.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x === b));
   render();
 };
+$('#q').oninput = (e) => { query = e.target.value.trim(); render(); };
 $('#era').onclick = (e) => { const b = e.target.closest('button'); if (b) setEra(b.dataset.era); };
 $('#vol').oninput = (e) => { if (master) master.gain.value = +e.target.value; };
 $('#bass').oninput = (e) => { if (bassEq) bassEq.gain.value = +e.target.value; };
@@ -984,7 +1066,11 @@ $('#eqreset').onclick = () => {
   if (trebEq) trebEq.gain.value = 0;
 };
 addEventListener('keydown', (e) => {
-  if (e.target.matches('input,textarea')) return;
+  if (e.target.matches('input,textarea')) {
+    if (e.key === 'Escape') { e.target.value = ''; query = ''; e.target.blur(); render(); }
+    return;
+  }
+  if (e.key === '/') { e.preventDefault(); $('#q').focus(); return; }
   if (e.key === ' ') { e.preventDefault(); $('#bplay')?.click(); }
   else if (e.key === '1') setEra('8bit');
   else if (e.key === '2') setEra('16bit');

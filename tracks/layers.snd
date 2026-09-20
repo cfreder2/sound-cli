@@ -1,22 +1,16 @@
-# LAYERS -- a teaching track. Four bars of the same phrase, six times, with
-# one more voice added each pass.
+
+# Layers. A demonstration track.
 #
-# Play it through once and you have heard the whole argument of this library:
-# nothing here gets louder or more complicated, and by the last section it
-# sounds like a band. That is layering, and it is the difference between a
-# score that sounds like a test tone and one that sounds like music.
+# The same four bars played six times, adding one voice each pass:
 #
-#   bare    one 25% pulse. A tune, and nothing else.
-#   body    + the same line on a triangle an octave down. THE single biggest
-#           improvement in the file, and it costs one voice.
-#   ground  + a bass alternating root and octave. Now there is a floor.
-#   colour  + an arpeggio. One voice cycling a chord: harmony for the price
-#           of a melody line.
-#   pulse   + drums. Time, which the ear was supplying for itself until now.
-#   air     + a counter-line a sixth above the lead. The top of the mix.
+#   bare    one 25% pulse
+#   body    + the same line on a triangle an octave down
+#   ground  + bass alternating root and octave
+#   colour  + arpeggio
+#   pulse   + drums
+#   air     + a counter-line a sixth above the lead
 #
-# `sound render layers --era 8bit` and `--era 16bit` are the same six steps on
-# two different rigs.
+# A minor, 116 BPM, 24 bars, 4/4.
 
 @track layers
   name   LAYERS

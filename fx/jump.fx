@@ -1,4 +1,5 @@
-# Jump. A rising pulse: the oldest platformer cue there is.
+# A hop. Short rising pulse.
+
 @fx jump
   desc  A hop -- a short rising pulse
   tags  movement platformer

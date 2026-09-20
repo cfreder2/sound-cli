@@ -1,4 +1,5 @@
-# Death. A long fall through more than an octave, the classic loss cue.
+# Defeat. A long descending slide of about one and a half octaves.
+
 @fx death
   desc  Defeat -- a long descending slide
   tags  state

@@ -1,8 +1,6 @@
-# Wood.
-#
-# Wood is the opposite of metal: it is almost all transient and almost no
-# ring. A woodblock is 20 ms of bandpassed noise and a tone that is gone in a
-# tenth of a second. If it rings, it is metal; if it thuds, it is too low.
+# Wood struck. 20 ms of bandpassed noise and a tone gone in about a tenth of a
+# second. Longer decay reads as metal; lower pitch reads as a drum.
+
 @fx wood
   desc  Wood struck -- a knock, a block, a hit on a crate
   tags  impact material

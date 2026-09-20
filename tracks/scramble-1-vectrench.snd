@@ -1,27 +1,12 @@
-# SCRAMBLE -- the training canyon's theme, and the first music anyone hears
-# in VECTRENCH.
-#
-# Originally written for VECTRENCH and imported from that project's score book:
-# https://github.com/cfreder2/VECTRENCH  (src/songs.js)
-#
-# Written in the Mega Man 2 idiom rather than lifted from it: a driving sixteenth
-# pulse, a bass that alternates root and octave instead of sitting on the beat,
-# an arpeggio standing in for a chord the fourth voice cannot afford, and a fill
-# that makes a section arrive rather than merely end.
-#
-# It is here because of what its ARRANGEMENT demonstrates. Nineteen order slots
-# over nine written sections gives about two minutes from roughly seventy bars,
-# and every section that lands twice in a row diverges on the second pass rather
-# than repeating: A2 threads a countermelody under the hook's held tail, B2
-# answers B's descent in parallel thirds, and C2 sequences the lift a third
-# higher. No four bars repeat back to back unchanged.
-#
-# A minor throughout. A is the hook (i - bVI - bVII - V), B answers it a register
-# up, C is the lift that keeps a two-minute arrangement from being one idea
-# eleven times.
 
-@track scramble
-  name   SCRAMBLE
+# Scramble, from VECTRENCH. Its training-canyon theme.
+# Source: https://github.com/cfreder2/VECTRENCH (src/songs.js)
+#
+# A minor, 150 BPM, 74 bars, 4/4. Nine sections over nineteen order slots.
+# Voices: lead, second pulse, arpeggio, bass, drums.
+
+@track scramble-1-vectrench
+  name   SCRAMBLE 1 (VECTRENCH)
   bpm    150
   beats  16
   era    8bit

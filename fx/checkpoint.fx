@@ -1,5 +1,5 @@
-# A checkpoint. Rising perfect fourth then the octave: unambiguously "good",
-# and short enough not to interrupt a run.
+# Checkpoint reached. Rising fourth, then the octave.
+
 @fx checkpoint
   desc  Checkpoint reached
   tags  ui reward platformer

@@ -1,5 +1,5 @@
-# Powering down. The mirror of a power-up: everything falls, and the pitch
-# slide slows as it goes, which is what a flywheel losing speed does.
+# Systems shutting down. Pitch and filter fall together, decelerating.
+
 @fx powerdown
   desc  Systems shutting down
   tags  scifi state

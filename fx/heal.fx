@@ -1,4 +1,5 @@
-# Heal. Rising, consonant, and slow enough to feel gentle.
+# Healing. Three rising consonant tones, slow.
+
 @fx heal
   desc  Healing -- a soft rising shimmer
   tags  reward

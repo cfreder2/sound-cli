@@ -1,14 +1,9 @@
-# RUNNER -- an original stage theme, and the one native 8-bit track in the book.
+
+# Runner. Original stage theme.
 #
-# D minor, 150 BPM, written in the idiom rather than lifted from it: a driving
-# sixteenth lead, a bass that alternates root and octave instead of sitting on
-# the beat, an arpeggio standing in for a chord the voice count cannot afford,
-# and a fill in the fourth bar so a section ARRIVES rather than merely ends.
-#
-# Run this one 16-bit and listen to what is lost as well as gained. The FM
-# lead is fatter and the kit is wider, but the 12.5% pulse has a nasal bite
-# that nothing in the 16-bit set reproduces, and the dry mix makes the
-# sixteenths articulate in a way the echo send blurs. Neither is better.
+# D minor, 150 BPM, 32 bars, 4/4. Three sections over eight order slots,
+# looping from slot 1. Sixteenth-note lead, walking bass, arpeggio, drums with
+# a fill in the fourth bar of each section.
 
 @track runner
   name   RUNNER

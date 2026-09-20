@@ -1,5 +1,5 @@
-# Coin / pickup. Two notes, the second a fifth above: the interval is what
-# makes it read as "reward" rather than "event".
+# Pickup. Two rising notes, B then F# above.
+
 @fx coin
   desc  Pickup -- two rising notes, B then F# above
   tags  pickup reward

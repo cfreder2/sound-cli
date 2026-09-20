@@ -1,4 +1,5 @@
-# A rocket launch: the ignition crack, then sustained noise receding.
+# A rocket launching. Ignition crack, then sustained noise receding.
+
 @fx rocket
   desc  A rocket or missile launching
   tags  weapon shooter scifi

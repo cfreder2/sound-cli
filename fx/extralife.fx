@@ -1,4 +1,5 @@
-# An extra life. The 1-UP: a short rising figure that resolves upward and stops.
+# Extra life. Five rising tones resolving upward.
+
 @fx extralife
   desc  An extra life
   tags  arcade reward

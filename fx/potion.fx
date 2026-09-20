@@ -1,4 +1,5 @@
-# Drinking. Three gulps falling in pitch as the bottle empties, then the cork.
+# Drinking. Three gulps falling in pitch, then the cork.
+
 @fx potion
   desc  Drinking a potion
   tags  rpg item water

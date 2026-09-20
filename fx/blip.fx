@@ -1,4 +1,5 @@
-# Menu blip. The shortest useful sound in a game: 25 ms, and it must not ring.
+# Menu move. A 25 ms tick.
+
 @fx blip
   desc  Menu move -- a 25 ms tick
   tags  ui

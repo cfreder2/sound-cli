@@ -1,5 +1,5 @@
-# A notification. Two tones a fourth apart, quiet, short -- it has to be
-# noticeable a hundred times an hour without ever being annoying.
+# A notification. Two tones a fourth apart, quiet and short.
+
 @fx notify
   desc  A notification chime
   tags  strategy sim ui

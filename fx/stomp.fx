@@ -1,5 +1,5 @@
-# Landing ON something. A thud with a squash: the descending tone is the thing
-# being flattened.
+# Stomping an enemy. Thud plus a descending tone.
+
 @fx stomp
   desc  Stomping an enemy
   tags  platformer combat

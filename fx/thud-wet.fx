@@ -1,5 +1,5 @@
-# A wet impact. The thud with water's moving filter on top -- half of `thud`,
-# half of `splash`, which is exactly what it is.
+# A wet impact. Thud plus water's moving filter.
+
 @fx thud-wet
   desc  A wet heavy impact -- mud, flesh, something landing in shallow water
   tags  impact water body

@@ -1,5 +1,5 @@
-# A dripping cave. Four drops at uneven spacing, each a little different --
-# even spacing reads as a metronome, and nothing in a cave is on the beat.
+# Four drops at uneven spacing, each at a different pitch.
+
 @fx drips
   desc  Water dripping in a cave, irregular
   tags  water ambience cave loop

@@ -1,5 +1,5 @@
-# A shotgun. Broad, low, and short -- the difference from `laser` is that
-# almost none of it is tonal.
+# A shotgun blast. Broad, low and short; almost none of it is tonal.
+
 @fx shotgun
   desc  A shotgun blast
   tags  weapon gun shooter

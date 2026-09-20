@@ -1,5 +1,5 @@
-# Robot speech. Four short square blips at machine-gun spacing; the square is
-# what makes it mechanical, and a sine version sounds like a toy.
+# Robot chatter. Four short square blips.
+
 @fx robot
   desc  Robot chatter
   tags  scifi dialogue

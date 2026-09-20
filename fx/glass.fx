@@ -1,5 +1,5 @@
-# Glass breaking. A crack, then many small inharmonic pings scattered in time
-# -- the scatter IS the shatter. One ping is a chime.
+# Glass shattering. A crack, then inharmonic pings scattered over ~250 ms.
+
 @fx glass
   desc  Glass shattering
   tags  impact material

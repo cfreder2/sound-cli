@@ -1,5 +1,5 @@
-# A block. Metal's inharmonic partials, cut short -- a parry is a clang that
-# is not allowed to ring.
+# A blocked blow. Metal's inharmonic partials, cut short.
+
 @fx block
   desc  A blocked or parried blow
   tags  fighting combat

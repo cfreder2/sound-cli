@@ -1,4 +1,5 @@
-# Correct answer. A major third then a fifth: consonant, quick, unmistakable.
+# A correct answer. Major third, then a fifth.
+
 @fx correct
   desc  A correct answer
   tags  puzzle ui reward

@@ -1,5 +1,5 @@
-# Something heavy going in. The low tone is the displaced volume, and it is
-# what separates a body from a bucket.
+# A heavy body hitting water. The low tone is the displaced volume.
+
 @fx splash-big
   desc  A heavy body hitting water
   tags  water impact

@@ -1,5 +1,5 @@
-# A ricochet. The sweep is DOWN and fast, and the echo does the rest -- a
-# ricochet in a dry mix sounds like a mistake.
+# A bullet glancing off stone. Fast downward sweep, heavy echo.
+
 @fx ricochet
   desc  A bullet glancing off stone
   tags  weapon shooter impact

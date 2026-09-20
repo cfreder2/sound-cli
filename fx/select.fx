@@ -1,4 +1,5 @@
-# Confirm. A blip that resolves upward, so it reads as "yes" not "moved".
+# Confirm. Two quick ascending ticks.
+
 @fx select
   desc  Confirm -- two quick ascending ticks
   tags  ui

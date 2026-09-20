@@ -1,5 +1,5 @@
-# A punch connecting. Short, low-mid, and entirely transient. Anything that
-# rings is a bell, not a fist.
+# A punch landing. Short, low-mid, entirely transient.
+
 @fx punch
   desc  A punch landing
   tags  fighting combat impact

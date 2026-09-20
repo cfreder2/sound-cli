@@ -1,5 +1,5 @@
-# Fire. Broadband noise with the filter wandering, plus irregular crackles.
-# The irregularity is everything: evenly spaced crackles read as a machine.
+# A burning flame. Broadband noise plus crackles at irregular intervals.
+
 @fx fire
   desc  A burning flame
   tags  ambience nature loop

@@ -1,5 +1,5 @@
-# Tyres losing grip. A resonant band that rises as the slide develops, which is
-# the rubber's contact patch shrinking.
+# Tyres skidding. Resonant band rising as the slide develops.
+
 @fx skid
   desc  Tyres skidding
   tags  racing vehicle

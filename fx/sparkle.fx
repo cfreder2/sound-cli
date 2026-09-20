@@ -1,5 +1,5 @@
-# Magic sparkle. Five inharmonic pings scattered across the stereo field and
-# across 200 ms -- scatter is the entire effect.
+# A magical shimmer. Five inharmonic pings scattered in time and stereo.
+
 @fx sparkle
   desc  A magical shimmer
   tags  rpg magic fantasy ui
