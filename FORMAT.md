@@ -127,10 +127,21 @@ built. Three layer types:
 
 - **`tone`** — `wave` (`sine` `tri` `nestri` `saw` `square` `pulse12` `pulse25`
   `pulse50`), `from`/`to` for a pitch sweep, `dur`, `gain`, `at`, `pan`,
-  `shape` (`exp` `lin` `flat` `hit`), `curve` (`exp` `lin`), `crush` (bit depth).
+  `shape` (`exp` `lin` `flat` `hit`), `curve` (`exp` `lin`), `rise` (attack
+  seconds), `crush` (bit depth).
 - **`noise`** — `bed` (`long` the shift register, `metal` its short mode,
   `white`), `from`/`to` sweeping the filter rather than the pitch, `filter`
-  (`lowpass` `highpass` `bandpass`), `q`, and the same timing keys.
+  (`lowpass` `highpass` `bandpass`), `q`, and the same timing keys including
+  `rise`.
+
+`shape` is the DECAY and every one of them starts at full, so `rise` is the only
+key that can make a layer arrive gradually. It defaults to 3 ms on a tone — just
+enough not to start mid-cycle with a click — and to nothing at all on noise,
+because a transient layer's whole job is to be sudden. Give it 60–100 ms and the
+layer swells against the decay still running underneath it, which makes a hump
+rather than a hit. That is the difference between water being struck and water
+being moved through, and `swim.fx` is the one to read for it: an onset arriving
+in the MIDDLE of an effect is heard as an impact, whatever the effect is called.
 - **`echo`** — not a layer; configures the send bus. `send`, `time`, `fb`, `damp`.
   Ignored on 8-bit, which is dry.
 

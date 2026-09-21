@@ -181,6 +181,44 @@ test('effects render in both eras without NaN or clipping', () => {
   }
 });
 
+test('rise makes a noise layer swell instead of strike', () => {
+  // Without `rise` a noise layer is at full amplitude on its first sample. The
+  // test is that the peak MOVES: an effect that swells peaks well after it
+  // starts, and that is the difference between a splash and a swish.
+  const src = (rise) => `@fx t\n@era 16bit\n  noise at=0 dur=0.3 gain=0.2 ${rise} from=800 to=300 q=0.9 bed=white\n`;
+  const peakAt = (text) => {
+    const { fx: e } = parseFx(text, 't.fx');
+    const { L, rate } = renderFx(e, '16bit', { normalize: false });
+    let best = 0, at = 0;
+    for (let i = 0; i < L.length; i++) if (Math.abs(L[i]) > best) { best = Math.abs(L[i]); at = i / rate; }
+    return at;
+  };
+  assert.ok(peakAt(src('')) < 0.01, 'with no rise the loudest sample is at the very front');
+  const swelled = peakAt(src('rise=0.08'));
+  assert.ok(swelled > 0.04 && swelled < 0.12, `rise=0.08 should peak around 80 ms, got ${swelled.toFixed(3)}s`);
+});
+
+test('rise is inert at its defaults, sample for sample', () => {
+  // A tone gets 3 ms and noise gets none, which is exactly what the renderer
+  // did before the key existed. Writing the default out by hand must produce
+  // the same samples as leaving it off: a new envelope key that quietly
+  // restyled a hundred finished sounds would be a worse bug than the one it
+  // was added to fix.
+  const cases = [
+    ['  tone at=0 dur=0.2 gain=0.2 wave=tri from=600 to=200\n', 'rise=0.003'],
+    ['  noise at=0 dur=0.2 gain=0.2 from=900 to=300 q=1 bed=white\n', 'rise=0'],
+  ];
+  for (const [layer, dflt] of cases) {
+    const render = (text) => {
+      const { fx: e } = parseFx(`@fx t\n@era 16bit\n${text}`, 't.fx');
+      return renderFx(e, '16bit', { normalize: false }).L;
+    };
+    const bare = render(layer);
+    const spelled = render(layer.trimEnd() + ` ${dflt}\n`);
+    assert.deepStrictEqual([...bare], [...spelled], `${dflt} must be what the default already was`);
+  }
+});
+
 test('layer isolation actually removes layers', () => {
   const { fx: e } = parseFx(readFileSync(join(ROOT, 'fx', 'splash.fx'), 'utf8'), 'splash');
   const one = renderFx(e, '16bit', { maxLayers: 1 });

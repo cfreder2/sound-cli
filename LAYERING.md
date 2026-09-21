@@ -75,6 +75,7 @@ contributes is the thing you are trying to find out.
 | muddy in a full mix | nothing — collision | move a layer an octave, or pan the two apart |
 | scratchy, farty, rattling on small speakers | nothing — **subsonic** | see below |
 | like a machine gun of clones | variation | `@vary pitch=0.06 gain=0.06` |
+| like an impact, when it should be a movement | nothing — **the onset** | `rise=0.06`–`0.10` on the layer, so it swells in instead of striking |
 
 ## The sub-bass trap
 

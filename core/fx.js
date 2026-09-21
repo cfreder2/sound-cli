@@ -142,6 +142,19 @@ export function renderFx(fx, era = '8bit', {
     const send = num(l.send, era === '16bit' ? 0.12 : 0);
     const crush = l.crush ? Number(l.crush) : (era === '8bit' ? 0 : 0);
     const shape = l.shape || 'exp';          // amplitude decay shape
+    // How long the layer takes to reach full, in seconds. A tone gets 3 ms by
+    // default -- enough that it does not start mid-cycle with a click -- and
+    // noise gets none, because a transient IS an instant onset and ramping it
+    // is how you blunt the one layer whose whole job is the first 20 ms.
+    //
+    // Set it longer and the layer SWELLS rather than strikes, against the
+    // decay shape still running underneath it, which makes a hump. That is the
+    // difference between water being hit and water being moved through: a
+    // splash is an onset, a swish is a swell. Nothing else in the envelope
+    // vocabulary can rise, so without this a mid-sound layer can only ever
+    // arrive as an impact.
+    const riseN = num(l.rise, l.kind === 'tone' ? 0.003 : 0) * rate;
+    const attackAt = (i) => (i < riseN ? i / riseN : 1);
 
     if (l.kind === 'tone') {
       const wave = WAVES[l.wave] || WAVES.square;
@@ -158,8 +171,7 @@ export function renderFx(fx, era = '8bit', {
           : shape === 'flat' ? 1
             : shape === 'hit' ? (1 - u) ** 3.2
               : (1 - u) ** 1.8;
-        const attack = i < 0.003 * rate ? i / (0.003 * rate) : 1;
-        let s = wave(phase, f / rate) * env * attack * gain;
+        let s = wave(phase, f / rate) * env * attackAt(i) * gain;
         if (crush) s = Math.round(clamp(s, -1, 1) * (2 ** crush - 1)) / (2 ** crush - 1);
         L[j] += s * gl; R[j] += s * gr; S[j] += s * send;
       }
@@ -182,7 +194,7 @@ export function renderFx(fx, era = '8bit', {
         : shape === 'flat' ? 1
           : shape === 'hit' ? (1 - u) ** 3.2
             : (1 - u) ** 1.8;
-      let s = filt.run(bed[(off + i) % bed.length]) * env * gain;
+      let s = filt.run(bed[(off + i) % bed.length]) * env * attackAt(i) * gain;
       if (crush) s = Math.round(clamp(s, -1, 1) * (2 ** crush - 1)) / (2 ** crush - 1);
       L[j] += s * gl; R[j] += s * gr; S[j] += s * send;
     }
