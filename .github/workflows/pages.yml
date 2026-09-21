@@ -1,0 +1,58 @@
+# The previewer, published.
+#
+# Built here rather than committed, for the same reason audio/ is gitignored:
+# site/ is derived. `sound build` copies ui/ and core/ and writes a manifest of
+# every score and effect, so a built site is a function of the repo and keeping
+# a copy in it is keeping something that can disagree with its own source. This
+# rebuilds on every push, so the page cannot drift from the scores it plays.
+#
+# No install step. The package has no dependencies -- lamejs is optional and
+# only MP3 output wants it -- and both the tests and the build are plain node.
+
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time, and never cancel one halfway: an interrupted deploy
+# leaves the published site mid-swap.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # The gate, then the build. A site that plays a score the checker would
+      # reject is worse than no site, because it looks like the tool works.
+      - run: node --test test/core.test.js
+      - run: node cli/index.js check --all
+      - run: node cli/index.js build
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

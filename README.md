@@ -3,10 +3,16 @@
 Music and sound effects for games. Plain-text scores, one synth, two console
 eras, and a previewer that lets you hear them against each other.
 
-**Status:** the core works. `ls`, `check`, `play`, `render`, `fx`,
-`instruments`, `explain` and `view` are built and tested — 22 tests, `npm test`.
-Not yet built: `import` (MIDI/MusicXML/ABC), `record` (virtual keyboard),
-`compose`, and `runtime` (emitting the module VECTRENCH and AXI would import).
+**[Hear it in the browser →](https://cfreder2.github.io/sound-cli/)** — every
+track and effect in both eras, the layer lanes, the keyboard and the editor. It
+is the `site/` that `sound build` writes, rebuilt from this repo on every push,
+so it plays exactly what is committed here.
+
+**Status:** the core works. `ls`, `check`, `play`, `render`, `hear`, `fold`,
+`fx`, `instruments`, `explain`, `view`, `build` and `runtime` are built and
+tested — 56 tests, `npm test`. Recording lives in the previewer's Keyboard tab.
+AXI imports what `runtime` emits; VECTRENCH has not been moved over yet.
+Not yet built: `import` (MIDI/MusicXML/ABC) and `compose`.
 [DESIGN.md](DESIGN.md) is the spec; [FORMAT.md](FORMAT.md) is the file format;
 [LAYERING.md](LAYERING.md) is how to make these sounds better.
 
@@ -47,8 +53,9 @@ normalised, so a quiet pad looks quiet — which is the thing worth seeing. The
 window steps through the track in bars, so you can watch Canon's second violin
 enter at bar 17. Effects have the same thing under *inspect layers*.
 
-**There is no server.** The page loads the scores as text and synthesises them
-in the tab, using the same `core/` modules the CLI imports — verified
+**There is no server.** That is why the published copy above is the whole tool
+rather than a screenshot of it. The page loads the scores as text and
+synthesises them in the tab, using the same `core/` modules the CLI imports — verified
 byte-identical, 0 differing bytes across a 16 MB render. `sound view` only
 serves files, and `sound build` writes the same thing as a static folder:
 
