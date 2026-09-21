@@ -69,6 +69,13 @@
   .list .s{color:var(--dim);font:11px/1.5 var(--mono);margin-top:3px}
   .list .grp{padding:9px 13px 5px;color:var(--dimmer);font:9px/1 var(--mono);
     letter-spacing:.16em;border-bottom:1px solid var(--line);background:#101519}
+  /* An empty YOURS is a state worth drawing rather than a gap: the heading is
+     there whether or not you have saved anything, so it has to say which. */
+  .list .empty{padding:13px;color:var(--dimmer);font:11px/1.5 var(--mono);
+    border-bottom:1px solid var(--line)}
+  .list button.newtrack{color:var(--a);font:600 11px/1 var(--mono);letter-spacing:.1em;
+    padding:11px 13px}
+  .list button.newtrack:hover{background:var(--panel2);color:var(--fg)}
 
   .card{border:1px solid var(--line);border-radius:9px;background:var(--panel);padding:16px}
   .card h2{margin:0 0 3px;font:600 17px/1.2 var(--mono);letter-spacing:.04em}
@@ -327,6 +334,94 @@ const hash = (str) => {
   for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
   return (h >>> 0).toString(36);
 };
+
+// ------------------------------------------------------- tracks of your own --
+//
+// Yours are the ones in THIS BROWSER. The page is static -- on GitHub Pages
+// there is no server to POST a take to -- so a track you played and named is
+// kept here, in the browser's own database, and it is still there tomorrow.
+//
+// IndexedDB rather than localStorage because this is authored work, not a
+// remembered tab: it should not share one 5 MB budget with every preference
+// this origin keeps, and it should not be written on the main thread.
+//
+// What is stored is the .snd TEXT, exactly what a file in tracks/ holds. A
+// second representation of a score would be a second format to keep in step.
+const DB = { name: 'sound-cli', store: 'tracks', version: 1 };
+let dbPromise = null;
+const openDb = () => (dbPromise ||= new Promise((res, rej) => {
+  const r = indexedDB.open(DB.name, DB.version);
+  r.onupgradeneeded = () => {
+    if (!r.result.objectStoreNames.contains(DB.store)) r.result.createObjectStore(DB.store, { keyPath: 'id' });
+  };
+  r.onsuccess = () => res(r.result);
+  r.onerror = () => rej(r.error);
+}));
+
+/** One transaction, resolved when it COMMITS rather than when the request
+ *  fires -- a write that resolves early is one you can read back stale. */
+async function withStore(mode, fn) {
+  const d = await openDb();
+  return new Promise((res, rej) => {
+    const t = d.transaction(DB.store, mode);
+    const req = fn(t.objectStore(DB.store));
+    let value;
+    if (req) req.onsuccess = () => { value = req.result; };
+    t.oncomplete = () => res(value);
+    t.onabort = t.onerror = () => rej(t.error);
+  });
+}
+
+// Every one of these can throw: private windows, blocked site data, a browser
+// with storage turned off. None of that should cost you the previewer, so a
+// failure means "you have no saved tracks" and the rest of the page works.
+const yours = {
+  async all() {
+    try { return (await withStore('readonly', (st) => st.getAll())) || []; } catch { return []; }
+  },
+  async put(id, text) {
+    return withStore('readwrite', (st) => st.put({ id, text, saved: Date.now() }));
+  },
+  async remove(id) {
+    try { return await withStore('readwrite', (st) => st.delete(id)); } catch { return null; }
+  },
+  async has(id) {
+    try { return !!(await withStore('readonly', (st) => st.get(id))); } catch { return false; }
+  },
+};
+
+/**
+ * A stored score, described the way the manifest describes a file in tracks/.
+ *
+ * Deliberately the same shape cli/serve.js builds, so the Tracks tab does not
+ * have to know which of the two a row came from -- one list, one row renderer,
+ * and `yours` is the only field that says where it lives.
+ */
+function entryFor(id, text) {
+  const t = loadScore(text, `${id}.snd`);
+  return {
+    id, name: t.name, bpm: t.bpm, beats: t.beats, era: t.era, tags: t.tags,
+    yours: true,
+    bars: t.totalBars, seconds: +t.seconds.toFixed(1), notes: t.notes,
+    voices: t.voices.map((v) => ({ id: v.id, inst: v.inst, mix: v.mix, pan: v.pan })),
+    blurb: (text.match(/^# ?(.*)$/gm) || []).slice(0, 14).map((l) => l.replace(/^# ?/, '')),
+    source: text,
+  };
+}
+
+/** Read the database and fold it into the track list. Called at boot and
+ *  after every save or delete, so one path builds the list every time. */
+async function refreshYours() {
+  const rows = await yours.all();
+  const mine = [];
+  for (const row of rows) {
+    // A score that no longer parses must not take the page down with it --
+    // the format can move under something you saved months ago.
+    try { mine.push(entryFor(row.id, row.text)); } catch (e) { console.warn('skipping saved track', row.id, e); }
+  }
+  mine.sort((a, b) => a.name.localeCompare(b.name));
+  manifest.tracks = [...mine, ...manifest.tracks.filter((t) => !t.yours)];
+}
 
 let bassEq = null, trebEq = null;
 function audio() {
@@ -799,6 +894,64 @@ function trackView(t) {
       more.textContent = open ? 'show all ▾' : 'show less ▴';
     };
     c.append(bl, more);
+  }
+
+  // What you can do to a track of your own. None of it applies to the ones the
+  // tool came with: those are files in the repo, and not this page's to delete.
+  if (t.yours) {
+    const own = el('div', 'rec');
+    const msg = el('span', 'meta', '');
+
+    const dl = el('button', 'btn tiny', 'DOWNLOAD .snd');
+    dl.onclick = () => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([t.source], { type: 'text/plain' }));
+      a.download = `${t.id}.snd`;
+      a.click();
+    };
+
+    // Promote a take into the library. Only a local server can write a file,
+    // and the page cannot know whether it has one until it asks -- so it asks
+    // by doing it, and says plainly what happened when nothing answers.
+    const add = el('button', 'btn tiny', 'ADD TO tracks/');
+    add.onclick = async () => {
+      msg.textContent = 'writing\u2026';
+      const post = (body) => fetch('/api/save', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+      });
+      try {
+        let r = await post({ id: t.id, text: t.source });
+        if (r.status === 409) {
+          if (!confirm(`tracks/${t.id}.snd exists. Overwrite it?`)) { msg.textContent = ''; return; }
+          r = await post({ id: t.id, text: t.source, overwrite: true });
+        }
+        if (!r.ok) { msg.textContent = await r.text(); return; }
+        // It is a library track now, so it stops being a browser one. Leaving
+        // it in both would list one score twice, under two different claims
+        // about where it lives.
+        await yours.remove(t.id);
+        manifest = await (await fetch(`data.json?t=${Date.now()}`)).json();
+        manifest.substitute = manifest.substituteTable;
+        await refreshYours();
+        pick.tracks = t.id;
+        render();
+      } catch {
+        msg.textContent = 'No local server \u2014 use DOWNLOAD and put the file in tracks/.';
+      }
+    };
+
+    const del = el('button', 'btn tiny', 'DELETE');
+    del.onclick = async () => {
+      if (!confirm(`Delete "${t.name}" from this browser?\n\nIt is nowhere else unless you downloaded it or added it to tracks/.`)) return;
+      await yours.remove(t.id);
+      await refreshYours();
+      pick.tracks = null;
+      stop();
+      render();
+    };
+
+    own.append(el('span', 'meta', 'YOURS \u00b7 saved in this browser'), dl, add, del, msg);
+    c.append(own);
   }
 
   const barDur = (t.beats * 60) / t.bpm / 4;
@@ -1442,7 +1595,7 @@ function keysView() {
     const out = el('div');
     box.append(out);
     const nameIn = el('input');
-    nameIn.type = 'text'; nameIn.placeholder = 'name for tracks/';
+    nameIn.type = 'text'; nameIn.placeholder = 'name it';
     nameIn.value = ''; nameIn.style.width = '170px';
     nameIn.setAttribute('spellcheck', 'false');
     const saveMsg = el('span', 'meta', '');
@@ -1491,12 +1644,14 @@ function keysView() {
         a2.download = `${nameIn.value || 'take'}.snd`;
         a2.click();
       };
-      // Save into tracks/, so a take joins the library instead of sitting in a
-      // downloads folder. Only works against the local server; a static host
-      // has no filesystem and the download is the fallback.
-      const save = el('button', 'btn tiny', 'SAVE TO TRACKS');
+      // Keep the take. It goes in this browser's database, which is the one
+      // place that exists on every host the page runs on -- there is nothing
+      // to POST to on GitHub Pages, and a take you named should still be there
+      // tomorrow. It lands under YOURS on the Tracks tab; ADD TO tracks/ there
+      // is what puts it in the library, and needs the local server.
+      const save = el('button', 'btn tiny', 'SAVE');
       save.onclick = async () => {
-        const id = (nameIn.value || '').trim();
+        const id = (nameIn.value || '').trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, '');
         if (!id) { saveMsg.textContent = 'Give it a name first.'; nameIn.focus(); return; }
         save.disabled = true;
         saveMsg.textContent = 'saving\u2026';
@@ -1506,26 +1661,19 @@ function keysView() {
           .replace('@track take', `@track ${id}`)
           .replace(/^ {2}name {3}TAKE$/m, `  name   ${id.replace(/-/g, ' ').toUpperCase()}`);
         try {
-          let r = await fetch('/api/save', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ id, text: named }),
-          });
-          if (r.status === 409) {
-            if (!confirm(`tracks/${id}.snd exists. Overwrite it?`)) { saveMsg.textContent = ''; return; }
-            r = await fetch('/api/save', {
-              method: 'POST',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ id, text: named, overwrite: true }),
-            });
+          if (await yours.has(id)) {
+            if (!confirm(`You already have a track called "${id}". Replace it?`)) {
+              saveMsg.textContent = ''; return;
+            }
           }
-          if (!r.ok) { saveMsg.textContent = await r.text(); return; }
-          const { path } = await r.json();
-          saveMsg.innerHTML = `saved to <b>${esc(path)}</b> \u2014 it is in the Tracks tab now`;
-          manifest = await (await fetch(`data.json?t=${Date.now()}`)).json();
-          manifest.substitute = manifest.substituteTable;
-        } catch {
-          saveMsg.textContent = 'No local server, so use DOWNLOAD and put the file in tracks/.';
+          // Parse before storing. A score the page cannot read back is worse
+          // than a refused save, because it fails later and somewhere else.
+          entryFor(id, named);
+          await yours.put(id, named);
+          await refreshYours();
+          saveMsg.innerHTML = `saved as <b>${esc(id)}</b> \u2014 it is under YOURS on the Tracks tab`;
+        } catch (e) {
+          saveMsg.textContent = `could not save: ${e.message || e}`;
         } finally { save.disabled = false; }
       };
       bar.append(hear, copy, save, dl, nameIn);
@@ -1834,7 +1982,7 @@ function editorView() {
   const top = el('div', 'edbar');
   const songSel = el('select');
   for (const t of manifest.tracks) {
-    const o = el('option', null, `${t.name}${t.shipped ? '' : '  (yours)'}`);
+    const o = el('option', null, `${t.name}${t.yours ? '  (yours)' : ''}`);
     o.value = t.id;
     if (edSong && t.id === edSong.id) o.selected = true;
     songSel.append(o);
@@ -1893,28 +2041,41 @@ function editorView() {
     saveId.value = `${m.id}-flat`;
     top.insertBefore(saveId, saveMsg);
   }
+  // Saving puts it in YOUR tracks, in this browser. Editing one of the tracks
+  // the tool came with therefore makes a copy rather than changing the file:
+  // a page cannot be allowed to quietly rewrite canon-in-d.snd in the repo,
+  // and the edit is still yours to keep.
+  const taken = (id) => manifest.tracks.some((t) => !t.yours && t.id === id);
   saveBtn.onclick = async () => {
-    const id = m.repeats ? (saveId.value || '').trim() : m.id;
+    let id = m.repeats ? (saveId.value || '').trim() : m.id;
+    id = id.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, '');
     if (!id) { saveMsg.textContent = 'Name it first.'; saveId.focus(); return; }
+    if (taken(id)) {
+      // Show the box rather than renaming behind their back: which name it
+      // ends up under is something they should get to read before it happens.
+      if (!top.contains(saveId)) top.insertBefore(saveId, saveMsg);
+      if (!saveId.value || taken(saveId.value.trim())) saveId.value = `${id}-mine`;
+      saveBtn.textContent = 'SAVE AS';
+      saveMsg.innerHTML = `<b>${esc(id)}</b> is one the tool came with \u2014 save yours under another name`;
+      saveId.focus(); saveId.select();
+      return;
+    }
     saveMsg.textContent = 'saving…';
     try {
       const named = { ...m, id, name: id === m.id ? m.name : id.replace(/-/g, ' ').toUpperCase() };
       const text = foldOn
         ? toSectionedText(named, foldSong(named))
         : ED.toText(named);
-      const r = await fetch('/api/save', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ id, text, overwrite: !m.repeats }),
-      });
-      if (r.status === 409) { saveMsg.textContent = `tracks/${id}.snd exists — pick another name.`; return; }
-      if (!r.ok) { saveMsg.textContent = await r.text(); return; }
+      if (await yours.has(id) && id !== m.id) {
+        if (!confirm(`You already have a track called "${id}". Replace it?`)) { saveMsg.textContent = ''; return; }
+      }
+      entryFor(id, text);                  // refuse to store what will not load
+      await yours.put(id, text);
+      await refreshYours();
       edDirty = false;
-      saveMsg.innerHTML = `saved to <b>tracks/${esc(id)}.snd</b>`
+      saveMsg.innerHTML = `saved as <b>${esc(id)}</b> \u00b7 under YOURS`
         + (foldOn ? ` \u00b7 folded to ${foldSong(m).written} written bars` : ' \u00b7 flat');
-      manifest = await (await fetch(`data.json?t=${Date.now()}`)).json();
-      manifest.substitute = manifest.substituteTable;
-    } catch { saveMsg.textContent = 'No local server — editing works, saving needs one.'; }
+    } catch (e) { saveMsg.textContent = `could not save: ${e.message || e}`; }
   };
 
   // --- tracks --------------------------------------------------------------
@@ -2175,6 +2336,14 @@ let tab = 'tracks';
 let pick = { tracks: null, fx: null };
 let query = '';
 
+/** Move to a tab, from the nav or from anything else that sends you to one.
+ *  One path, so the nav's highlight cannot disagree with what is rendered. */
+function setTab(name) {
+  tab = name;
+  document.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x.dataset.tab === name));
+  render();
+}
+
 /** Substring match over a row's name, description and tags. */
 const hit = (row, ...fields) => {
   if (!query) return true;
@@ -2200,23 +2369,37 @@ function render() {
     const list = el('div', 'list');
     const shown = manifest.tracks.filter((x) => hit(x, x.id, x.name, x.tags.join(' ')));
     setCount(shown.length, manifest.tracks.length);
-    // Your tracks first and under their own heading. Anything you record or
-    // write does not belong filed among the examples that came with the tool.
-    const mine = shown.filter((t) => !t.shipped);
-    const theirs = shown.filter((t) => t.shipped);
-    const group = (label, rows) => {
-      if (!rows.length) return;
-      if (mine.length) list.append(el('div', 'grp', label));
-      for (const t of rows) {
-        const b = el('button', pick.tracks === t.id ? 'on' : '');
-        b.append(el('div', 't', esc(t.name)));
-        b.append(el('div', 's', `${t.seconds}s · ${t.bars} bars · ${t.voices.length}v · ${esc(t.tags[0] || '')}`));
-        b.onclick = () => { pick.tracks = t.id; stop(); mutes.clear(); solos.clear(); era = t.era; render(); };
-        list.append(b);
-      }
+    // Your tracks first and under their own heading. YOURS means the ones in
+    // this browser's database -- what you recorded or edited and saved here.
+    // Everything the tool came with is INCLUDED, however recently it was added
+    // to tracks/: that used to be decided by a hand-kept list of names, which
+    // silently filed the two newest library tracks under somebody's own work.
+    const mine = shown.filter((t) => t.yours);
+    const theirs = shown.filter((t) => !t.yours);
+    const row = (t) => {
+      const b = el('button', pick.tracks === t.id ? 'on' : '');
+      b.append(el('div', 't', esc(t.name)));
+      b.append(el('div', 's', `${t.seconds}s · ${t.bars} bars · ${t.voices.length}v · ${esc(t.tags[0] || '')}`));
+      b.onclick = () => { pick.tracks = t.id; stop(); mutes.clear(); solos.clear(); era = t.era; render(); };
+      return b;
     };
-    group('YOURS', mine);
-    group('INCLUDED', theirs);
+
+    // YOURS is always here, empty or not. A heading that appears only once you
+    // already have something cannot tell you that you can make something, and
+    // the button to do it has to live where the results will appear.
+    list.append(el('div', 'grp', 'YOURS'));
+    for (const t of mine) list.append(row(t));
+    if (!mine.length) {
+      list.append(el('div', 'empty', query
+        ? 'Nothing of yours matches that.'
+        : 'Nothing saved in this browser yet.'));
+    }
+    const rec = el('button', 'newtrack', '\u25cf  RECORD A NEW TRACK');
+    rec.onclick = () => { setTab('keys'); };
+    list.append(rec);
+
+    list.append(el('div', 'grp', 'INCLUDED'));
+    for (const t of theirs) list.append(row(t));
     g.append(list);
     const t = shown.find((x) => x.id === pick.tracks) || shown[0] || manifest.tracks[0];
     if (!t) { main.append(g); return; }
@@ -2304,9 +2487,7 @@ function render() {
 
 $('#tabs').onclick = (e) => {
   const b = e.target.closest('button'); if (!b) return;
-  tab = b.dataset.tab;
-  document.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x === b));
-  render();
+  setTab(b.dataset.tab);
 };
 $('#q').oninput = (e) => { query = e.target.value.trim(); render(); };
 $('#era').onclick = (e) => { const b = e.target.closest('button'); if (b) setEra(b.dataset.era); };
@@ -2360,6 +2541,9 @@ manifest = await r.json();
 // The substitution table lives in core/instruments.js and rides along in the
 // manifest, so the page never has to guess what a voice becomes on the other rig.
 manifest.substitute = manifest.substituteTable;
+// Your own tracks are folded in before the first paint, so YOURS is populated
+// on arrival rather than appearing a moment later.
+await refreshYours();
 if (manifest.tracks.length) { era = manifest.tracks[0].era; nativeEra = era; }
 document.querySelectorAll('#era button').forEach((b) => b.classList.toggle('on', b.dataset.era === era));
 markNative();

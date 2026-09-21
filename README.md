@@ -22,7 +22,7 @@ node cli/index.js view
 ```
 
 ```sh
-sound ls                          # 7 tracks, 20 effects
+sound ls                          # 11 tracks, 108 effects
 sound check --all                 # the gate: bar widths, tokens, instruments
 sound play runner --era 16bit     # hear it in the terminal
 sound render --all --both         # 8-bit and 16-bit side by side, to ./audio
@@ -60,7 +60,7 @@ byte-identical, 0 differing bytes across a 16 MB render. `sound view` only
 serves files, and `sound build` writes the same thing as a static folder:
 
 ```sh
-sound build                # -> site/  (293 KB, no dependencies)
+sound build                # -> site/  (about half a megabyte, no dependencies)
 ```
 
 Drop `site/` on GitHub Pages, S3 or `python3 -m http.server` and it works.
@@ -79,9 +79,8 @@ octave, Q–U upper), the mouse or touch, or a MIDI device if one is plugged in.
 Arm REC, play, press stop. The first thing offered is **PLAY BACK** — the notes
 at the times you played them, no grid involved. Turning a take into a score is a
 separate step, because a score is a grid of steps and converting rounds your
-timing to it. Name it and **SAVE TO TRACKS** writes `tracks/<name>.snd` and it
-appears in the Tracks tab; on a static host with no server, DOWNLOAD is the
-fallback.
+timing to it. Name it and **SAVE** keeps it, and it appears under YOURS on the
+Tracks tab.
 
 It runs an AudioWorklet over the same `core/voice.js` the renderer uses, so a
 note played on the keyboard and the same note written into a score are the same
@@ -98,6 +97,31 @@ notice:
   step. Lanes are assigned by which is free rather than by pitch, so a held note
   stays in one lane instead of moving every time a chord changes shape. Past
   four at once, notes are reported as dropped rather than silently overwritten.
+
+## Yours, and where they live
+
+The Tracks tab has two groups and the line between them is where the score is:
+
+| | |
+| --- | --- |
+| **YOURS** | saved in this browser, in its own database — what you recorded or edited here |
+| **INCLUDED** | the `.snd` files in `tracks/`, whatever came with the tool |
+
+Yours are kept in the browser rather than on a server because there usually is
+no server: the previewer is a static page, and on GitHub Pages there is nothing
+to POST a take to. Saving in the tab is the one thing that works everywhere, so
+it is what SAVE does. They survive a reload and a restart, they are per-browser
+and per-machine, and clearing site data clears them — so **DOWNLOAD .snd** is
+how one leaves, and it is the only copy that outlives the browser.
+
+Editing an INCLUDED track and saving makes a copy under YOURS. A page cannot be
+allowed to quietly rewrite `canon-in-d.snd` in the repo, and the edit is still
+worth keeping, so it asks for a name instead.
+
+**ADD TO tracks/** promotes one into the library, writing the file and dropping
+it from the browser so the same score is not listed twice under two different
+claims about where it lives. That one needs `sound view`, because writing a file
+needs something that can write files.
 
 ## The editor
 
