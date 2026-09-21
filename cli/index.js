@@ -34,6 +34,13 @@ const positional = argv.filter((a, i) => !a.startsWith('--')
   && !(i > 0 && argv[i - 1].startsWith('--') && !['json', 'all', 'strict', 'quiet', 'vary', 'both'].includes(argv[i - 1].slice(2))));
 
 const listTracks = () => readdirSync(TRACKS).filter((f) => f.endsWith('.snd')).map((f) => f.replace(/\.snd$/, ''));
+/** N passes of a buffer end to end, for hearing what a loop's join does. */
+const repeat = (L, R, times) => {
+  const out = [new Float32Array(L.length * times), new Float32Array(R.length * times)];
+  for (let k = 0; k < times; k++) { out[0].set(L, k * L.length); out[1].set(R, k * R.length); }
+  return out;
+};
+
 const listFx = () => readdirSync(FX).filter((f) => f.endsWith('.fx')).map((f) => f.replace(/\.fx$/, ''));
 const readTrack = (n) => loadScore(readFileSync(join(TRACKS, `${n}.snd`), 'utf8'), `${n}.snd`);
 const readFxFile = (n) => {
@@ -159,11 +166,18 @@ const VERBS = {
         const out = renderTrack(t, {
           era, bars: flag('bars') ? Number(flag('bars')) : null,
           bpm: flag('bpm') ? Number(flag('bpm')) : null,
+          loop: has('loop'),
         });
-        const file = `${n}${eras.length > 1 || flag('era') ? `-${era}` : ''}.${format}`;
-        const bytes = await write(out.L, out.R, out.rate, join(dir, file), format, depth);
+        // `--times` is how you AUDITION a loop. A loop is a join, and a join is
+        // not in a single pass of the music -- you hear it by arriving at it,
+        // which means playing the thing twice and listening to the middle.
+        const times = Math.max(1, Number(flag('times', 1)) || 1);
+        const [L, R] = times > 1 ? repeat(out.L, out.R, times) : [out.L, out.R];
+        const file = `${n}${eras.length > 1 || flag('era') ? `-${era}` : ''}`
+          + `${has('loop') ? '-loop' : ''}${times > 1 ? `x${times}` : ''}.${format}`;
+        const bytes = await write(L, R, out.rate, join(dir, file), format, depth);
         const subs = out.stats.voices.filter((v) => v.substituted);
-        console.log(`  ${file.padEnd(28)} ${out.stats.seconds.toFixed(1).padStart(6)}s  `
+        console.log(`  ${file.padEnd(28)} ${(L.length / out.rate).toFixed(1).padStart(6)}s  `
           + `peak ${out.stats.peakDb.toFixed(1).padStart(6)} dBFS  RMS ${out.stats.rmsDb.toFixed(1).padStart(6)} dBFS  `
           + `${(bytes / 1024 / 1024).toFixed(1)}MB`
           + `${out.stats.limitDb < -0.1 ? `  limited ${out.stats.limitDb.toFixed(1)}dB` : ''}`
@@ -397,6 +411,9 @@ const VERBS = {
       --era 8bit|16bit  force an era, overriding the score
       --format wav|mp3  --depth 16|24|32  --bars N  --out DIR
       --bpm N           re-sequence at another tempo, pitch unchanged
+      --loop            exactly N bars, ring-out folded over bar one -- what
+                        a game loops, rather than what a file ends with
+      --times N         that many passes end to end, to hear the join
   sound fx list | play <n> | render [names] | explain <n>
       --both  --era  --vary
   sound instruments [--era 16bit]   what is available

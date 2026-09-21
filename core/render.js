@@ -142,7 +142,7 @@ function renderDrum(mix, at, hit, gain, era, send) {
  * instruments.js decides what a 25% pulse becomes on a 16-bit rig.
  */
 export function renderTrack(track, {
-  era = track.era, rate = RATE, intensity = 1, bars = null, tail = TAIL,
+  era = track.era, rate = RATE, intensity = 1, bars = null, tail = TAIL, loop = false,
   targetRmsDb = -18, normalize = true, bpm = null, from = 0, tilt = 0, ceiling = 0.89,
   onProgress = null,
 } = {}) {
@@ -160,7 +160,7 @@ export function renderTrack(track, {
   const steps = Math.max(0, lastStep - firstStep);
   const limitBars = steps / track.beats;
   const seconds = steps * stepTime + tail;
-  const n = Math.ceil(seconds * rate);
+  let n = Math.ceil(seconds * rate);
   const mix = { L: new Float32Array(n), R: new Float32Array(n), S: new Float32Array(n) };
 
   const used = [];
@@ -264,6 +264,32 @@ export function renderTrack(track, {
     const tl = new Biquad('highshelf', 1200, 0.707, tilt, rate);
     const tr2 = new Biquad('highshelf', 1200, 0.707, tilt, rate);
     for (let i = 0; i < n; i++) { mix.L[i] = tl.run(mix.L[i]); mix.R[i] = tr2.run(mix.R[i]); }
+  }
+
+  // Rendering FOR A LOOP: fold the tail back over the head and cut to the bars.
+  //
+  // `tail` is room for the last note to ring out, and it is right for a file.
+  // Inside a looping player it is a second of silence every time round, which
+  // is precisely what makes a loop sound like a track that ended and then
+  // started again rather than music that keeps going.
+  //
+  // Trimming it away instead would chop the last note off mid-ring, so the
+  // tail is ADDED to the front, where in a loop it actually belongs: the last
+  // bar's decay and echo ring over bar one, exactly as they would if the band
+  // simply kept playing. What comes back is exactly the bars long, so a player
+  // set to loop it is seamless and stays in time -- and the loudness matching
+  // below now measures music rather than music plus a second of silence.
+  if (loop) {
+    const loopN = Math.round(steps * stepTime * rate);
+    if (loopN > 0 && loopN < n) {
+      for (let i = loopN; i < n && i - loopN < loopN; i++) {
+        mix.L[i - loopN] += mix.L[i];
+        mix.R[i - loopN] += mix.R[i];
+      }
+      mix.L = mix.L.slice(0, loopN);
+      mix.R = mix.R.slice(0, loopN);
+      n = loopN;
+    }
   }
 
   // Match loudness, then limit.

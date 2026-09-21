@@ -151,7 +151,11 @@ export class Engine {
     // on one nobody is looking at rather than the one starting the level.
     await new Promise((r) => setTimeout(r, 0));
     const track = loadScore(TRACKS[name], name + '.snd');
-    this.trackBuf.set(name, toBuffer(this.ctx, renderTrack(track, { era: this.era })));
+    // \`loop\`: game music repeats, so it is rendered to repeat. Without it the
+    // buffer carries the renderer's 1.2 s tail, and a looping source plays that
+    // second of silence every time round -- which is heard as the track ending
+    // and starting again rather than as music that has not stopped.
+    this.trackBuf.set(name, toBuffer(this.ctx, renderTrack(track, { era: this.era, loop: true })));
   }
 
   /**

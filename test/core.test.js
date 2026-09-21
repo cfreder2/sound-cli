@@ -181,6 +181,33 @@ test('effects render in both eras without NaN or clipping', () => {
   }
 });
 
+test('a looping render is exactly its bars long, with no dead air at the seam', () => {
+  // The renderer leaves 1.2 s past the last note for it to ring out, which is
+  // right for a file and is a second of silence every time round inside a
+  // looping player. `loop` folds that ring-out over bar one and cuts to the
+  // bars, so the buffer a game loops is music end to end.
+  const track = loadScore(readFileSync(join(ROOT, 'tracks', 'overworld-1-axi.snd'), 'utf8'), 'overworld');
+  const plain = renderTrack(track, {});
+  const looped = renderTrack(track, { loop: true });
+  const stepTime = 60 / track.bpm / 4;
+  const bars = looped.L.length / looped.rate / stepTime / track.beats;
+  assert.ok(Math.abs(bars - track.totalBars) < 0.001, `expected ${track.totalBars} bars, got ${bars.toFixed(3)}`);
+  assert.ok(looped.L.length < plain.L.length, 'the tail is gone from the loop');
+
+  const rms = (a, from, to) => {
+    let s = 0;
+    for (let i = from; i < to; i++) s += a[i] * a[i];
+    return Math.sqrt(s / (to - from));
+  };
+  const last = (r) => rms(r.L, r.L.length - Math.round(0.2 * r.rate), r.L.length);
+  // The plain render ends in silence; the looped one ends in music, within a
+  // few dB of where it began, so the join does not read as a stop and a start.
+  assert.ok(last(plain) < 1e-4, `plain render should end silent, got ${last(plain)}`);
+  const head = rms(looped.L, 0, Math.round(0.2 * looped.rate));
+  const ratioDb = Math.abs(20 * Math.log10(last(looped) / head));
+  assert.ok(ratioDb < 12, `seam should be level within 12 dB, got ${ratioDb.toFixed(1)}`);
+});
+
 test('rise makes a noise layer swell instead of strike', () => {
   // Without `rise` a noise layer is at full amplitude on its first sample. The
   // test is that the peak MOVES: an effect that swells peaks well after it
