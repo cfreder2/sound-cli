@@ -1,0 +1,43 @@
+# The star's theme, from AXI. Plays when she is out of lives and the star
+# comes out of the distance, and again at the end of the demo.
+#
+# It is the only music in the game with no drums. The overworld skips and the
+# King marches; this one is being spoken to kindly after losing, and a kit
+# under that turns consolation into a results screen.
+#
+# Short on purpose. The scene it plays under is four and a half seconds: what
+# the player hears is the opening phrase, so the opening phrase has to be the
+# whole idea rather than a run-up to one.
+#
+# C major, 100 BPM, 4 bars, 4/4. 16bit, like everything AXI ships.
+
+@track star-axi
+  name   THE STAR (AXI)
+  bpm    100
+  beats  16
+  era    16bit
+  tags   axi game original
+
+# A bell, falling and then lifting on the last bar -- "there, there" and then
+# "off you go". Long notes: at four bars there is no room to be busy.
+@voice lead inst=fm-bell mix=0.20
+  g4  .   .   .   .   .   e4  .   .   .   .   .   c4  .   .   .
+  d4  .   .   .   .   .   f4  .   .   .   .   .   e4  .   .   .
+  a4  .   .   .   .   .   g4  .   .   .   .   .   e4  .   .   .
+  f4  .   .   .   g4  .   .   .   c5  .   .   .   .   .   .   .
+
+# Held rather than moving. The overworld's chord turns over every sixteenth,
+# which is what makes it bright; this one sits under the bell and stays put.
+@voice pad inst=arp mix=0.035
+  c   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  dm  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  am  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  f   .   .   .   .   .   .   .   g   .   .   .   .   .   .   .
+
+# Two notes a bar, low and slow. A walking bass would put it back on its feet
+# and this is the one moment in the game that is allowed to sit down.
+@voice bass inst=tri mix=0.15
+  c2  .   .   .   .   .   .   .   g2  .   .   .   .   .   .   .
+  d2  .   .   .   .   .   .   .   a2  .   .   .   .   .   .   .
+  a1  .   .   .   .   .   .   .   e2  .   .   .   .   .   .   .
+  f2  .   .   .   .   .   .   .   g2  .   .   .   .   .   .   .
