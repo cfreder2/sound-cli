@@ -17,6 +17,7 @@ import { probeScore, ROLE } from '../core/probe.js';
 import { toModel, toText } from '../core/edit.js';
 import { fold as foldTrack, toSectionedText, verify as verifyFold } from '../core/fold.js';
 import { serve, buildManifest } from './serve.js';
+import { emitRuntime } from './runtime.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const TRACKS = join(ROOT, 'tracks');
@@ -331,6 +332,27 @@ const VERBS = {
     }
   },
 
+  /**
+   * Write the engine into a game, so the game stops carrying its own.
+   *
+   * `--tracks` and `--fx` take names; without them it emits everything, which
+   * is right for trying it and wrong for shipping -- a hundred effects is a
+   * hundred effects of text in someone's bundle.
+   */
+  runtime() {
+    const dir = resolve(String(flag('emit', 'web/audio')));
+    const pick = (given, all) => {
+      if (given === null || given === true) return all;
+      const want = String(given).split(',').map((x) => x.trim()).filter(Boolean);
+      const bad = want.filter((w) => !all.includes(w));
+      if (bad.length) die(`unknown: ${bad.join(', ')}`);
+      return want;
+    };
+    const tracks = pick(flag('tracks'), listTracks());
+    const fx = pick(flag('fx'), listFx());
+    emitRuntime(ROOT, { dir, tracks, fx, quiet: has('quiet') });
+  },
+
   view() {
     serve({ root: ROOT, port: Number(flag('port', 7171)), open: !has('no-open') });
   },
@@ -382,6 +404,8 @@ const VERBS = {
       --out <name>  --in-place  --force
   sound explain <instrument>        its layers, spelled out
   sound hear <instrument>           play a phrase on it
+  sound runtime [--emit DIR]        write the engine into a game
+      --tracks a,b  --fx a,b   only these (default: everything)
   sound view [--port 7171]          the side-by-side preview in a browser
   sound build [dir]                 write that preview as a static site
 

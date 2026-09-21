@@ -556,3 +556,63 @@ test('a voice silent through a section is left out of it', () => {
   assert.ok(!secB.includes('lead'), 'lead is silent in bars 3-4 and should not be written there');
   assert.equal(verify(m, text, loadScore), null, 'and it still round-trips');
 });
+
+test('the runtime ships the core verbatim, not a port of it', async () => {
+  const { emitRuntime } = await import('../cli/runtime.js');
+  const { mkdtempSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const dir = mkdtempSync(join(tmpdir(), 'sndrt-'));
+  emitRuntime(ROOT, { dir, tracks: ['overworld-1-axi'], fx: ['jump', 'stomp'], quiet: true });
+
+  // The whole argument for this package is that there is ONE synth. A runtime
+  // that rewrote it against Web Audio would be the third, after AXI's and
+  // VECTRENCH's, and the drift between those two is why this exists. So the
+  // emitted core has to be the core, to the byte -- only a header on top.
+  for (const m of ['dsp', 'instruments', 'voice', 'score', 'render', 'fx']) {
+    const src = readFileSync(join(ROOT, 'core', `${m}.js`), 'utf8');
+    const out = readFileSync(join(dir, `${m}.js`), 'utf8');
+    assert.ok(out.endsWith(src), `${m}.js was changed on the way out`);
+  }
+
+  // And the data is the files, so a score stays something you can read.
+  const data = readFileSync(join(dir, 'data.js'), 'utf8');
+  assert.match(data, /@track overworld-1-axi/);
+  assert.match(data, /@fx jump/);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('the emitted engine renders every effect it was given', async () => {
+  const { emitRuntime } = await import('../cli/runtime.js');
+  const { mkdtempSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const dir = mkdtempSync(join(tmpdir(), 'sndrt2-'));
+  const names = ['jump', 'stomp', 'footstep', 'thud-heavy'];
+  emitRuntime(ROOT, { dir, tracks: [], fx: names, quiet: true });
+
+  const { Engine } = await import(`file://${join(dir, 'index.js')}`);
+  // Enough of a context to prove the render path, and no more: what is being
+  // tested is that PCM comes out, not that a browser can play it.
+  const ctx = {
+    currentTime: 0,
+    createBuffer: (ch, len, rate) => ({ len, rate, data: [],
+      copyToChannel(a, i) { this.data[i] = a; } }),
+    createGain: () => ({ gain: { value: 1 }, connect() {} }),
+    destination: {},
+  };
+  const e = new Engine(ctx, { era: '16bit' });
+  const peaks = {};
+  for (const n of names) {
+    const b = e.buffer(n);
+    assert.ok(b, `${n} did not render`);
+    let m = 0;
+    for (const v of b.data[0]) m = Math.max(m, Math.abs(v));
+    assert.ok(m > 0.001 && Number.isFinite(m), `${n} rendered silence or NaN`);
+    peaks[n] = m;
+  }
+  // Not normalised, on purpose: a game wants a footstep quieter than a boss
+  // landing, and the .fx files already say so. The tool peak-matches for A/B;
+  // the runtime must not, or the mix is handed back to the caller.
+  assert.ok(peaks.footstep < peaks['thud-heavy'],
+    `footstep ${peaks.footstep} should be quieter than thud-heavy ${peaks['thud-heavy']}`);
+  rmSync(dir, { recursive: true, force: true });
+});

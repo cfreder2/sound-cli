@@ -1,0 +1,66 @@
+# The Frog King's theme, from AXI. Plays when Masie walks into his arena.
+#
+# D minor against the overworld's C major, and it MARCHES where that one skips.
+# The difference is the point: a boss you can hear coming should not sound like
+# the walk that got you there. Long held notes with a dotted lift into each
+# bar, a bass hammering root and fifth, and a kick on all four beats.
+#
+# Eight bars, same shape as the overworld theme, so the crossfade between them
+# lands on a phrase rather than across one.
+#
+# D minor, 96 BPM, 8 bars, 4/4. 16bit: this is the era AXI ships.
+
+@track boss-king-axi
+  name   THE FROG KING (AXI)
+  bpm    96
+  beats  16
+  era    16bit
+  tags   axi game boss original
+
+# The fanfare. It climbs for four bars, turns at the top and comes back down,
+# which is a frog getting bigger and then sitting on you.
+@voice lead inst=lead-echo mix=0.20
+  d5  .   .   .   d5  .   f5  .   a5  .   .   .   a5  .   .   .
+  a5  .   g#5 .   a5  .   .   .   f5  .   .   .   .   .   .   .
+  a#4 .   .   .   a#4 .   d5  .   f5  .   .   .   f5  .   .   .
+  e5  .   .   .   e5  .   .   .   c#5 .   .   .   a4  .   .   .
+  d5  .   .   .   f5  .   .   .   a5  .   .   .   d6  .   .   .
+  c6  .   a#5 .   a5  .   .   .   g5  .   .   .   .   .   .   .
+  f5  .   .   .   f5  .   g5  .   a5  .   .   .   a#5 .   .   .
+  a5  .   .   .   e5  .   .   .   c#5 .   .   .   d5  .   .   .
+
+# Held, not arpeggiated. The overworld's chord moves on every sixteenth and
+# that is what makes it bright; this one sits still and lets the bass do the
+# work, which is what makes it heavy.
+@voice pad inst=arp mix=0.045
+  dm  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  dm  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  bb  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  a   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  dm  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  gm  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  bb  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  a   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+
+# Root and fifth, on the beat, over and over. No octave jumps and no walking:
+# the overworld bass is a bounce and this one is a footfall.
+@voice bass inst=tri mix=0.21
+  d2  .   d2  .   a2  .   a2  .   d2  .   d2  .   a2  .   a2  .
+  d2  .   d2  .   a2  .   a2  .   d2  .   d2  .   a2  .   d3  .
+  a#1 .   a#1 .   f2  .   f2  .   a#1 .   a#1 .   f2  .   f2  .
+  a1  .   a1  .   e2  .   e2  .   a1  .   a1  .   e2  .   a2  .
+  d2  .   d2  .   a2  .   a2  .   d2  .   d2  .   a2  .   a2  .
+  g1  .   g1  .   d2  .   d2  .   g1  .   g1  .   d2  .   d2  .
+  a#1 .   a#1 .   f2  .   f2  .   a#1 .   a#1 .   f2  .   f2  .
+  a1  .   a1  .   e2  .   e2  .   a1  .   a1  .   e2  .   e2  .
+
+# Four on the floor, and a roll into the turn at the end of bars four and eight.
+@voice drums inst=kit mix=0.125
+  k   .   .   .   s   .   .   .   k   .   .   .   s   .   .   .
+  k   .   .   .   s   .   .   .   k   .   .   .   s   .   k   .
+  k   .   .   .   s   .   .   .   k   .   .   .   s   .   .   .
+  k   .   .   .   s   .   .   .   k   .   .   .   x   x   t   x
+  k   .   .   .   s   .   .   .   k   .   .   .   s   .   .   .
+  k   .   .   .   s   .   .   .   k   .   .   .   s   .   k   .
+  k   .   .   .   s   .   .   .   k   .   .   .   s   .   .   .
+  k   .   .   .   s   .   .   .   x   x   x   x   t   t   t   x
