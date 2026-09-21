@@ -1,4 +1,4 @@
-# A small friendly voice. Masie, when she has something to say.
+# A small friendly voice. Maisie, when she has something to say.
 #
 # Not a word and not a beep. It rises and then falls inside a fifth of a
 # second, which is the shape of a question, and it is a sine rather than a
