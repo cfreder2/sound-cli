@@ -101,6 +101,7 @@
   .loopbtn{border:1px solid var(--line);background:var(--panel2);color:var(--dim);border-radius:7px;
     font:600 10px/1 var(--mono);letter-spacing:.1em;padding:11px 12px;cursor:pointer}
   .loopbtn.on{background:var(--good);color:#04180d;border-color:var(--good)}
+  .btn.tiny.loop.on{background:var(--good);color:#04180d;border-color:var(--good)}
 
   table{width:100%;border-collapse:collapse;font:12px/1.5 var(--mono);margin-top:12px}
   th,td{text-align:left;padding:6px 9px;border-bottom:1px solid var(--line)}
@@ -207,6 +208,11 @@
   .trk .row:last-child{border-bottom:0}
   .trk .row.sel{background:var(--panel2);box-shadow:inset 3px 0 var(--a)}
   .trk .row.armed{box-shadow:inset 3px 0 var(--hot)}
+  /* A note is sounding in this track right now. After .sel and .armed on
+     purpose: it is the most transient of the three and has to win. */
+  .trk .row.live{background:rgba(111,230,255,.13)}
+  .trk .row.live .nm{color:var(--fg)}
+  .trk .row.live .nm small{color:var(--dim)}
   .trk .nm{font:11px/1.3 var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .trk .nm small{display:block;color:var(--dimmer);font-size:9px}
   .trk .btns{display:flex;gap:3px}
@@ -315,6 +321,12 @@ addEventListener('unhandledrejection', (e) => fail('unhandled promise rejection'
 const el = (t, c, h) => { const n = document.createElement(t); if (c) n.className = c; if (h != null) n.innerHTML = h; return n; };
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+/** FNV-1a. Enough to say "this is the same text as last time" for a cache key. */
+const hash = (str) => {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(36);
+};
 
 let bassEq = null, trebEq = null;
 function audio() {
@@ -1639,12 +1651,60 @@ let edTrack = null;     // selected track id
 let edArmed = null;     // track that recording goes into
 let edSel = null;       // { from, to } in bars
 let edDirty = false;
+let edLoop = false;     // repeat the bar range instead of playing to the end
 const edMute = new Set();
 const edSolo = new Set();
-let edPlay = null;      // { src, startedAt }
+let edPlay = null;      // { src, startedAt, loop, silent }
+let edRaf = 0;          // the follow loop, which outlives any one canvas
+let edSeq = 0;          // play generation, so a superseded render is dropped
+const edRows = new Map();  // track id -> its row in the track list
 
 const ROW_H = 9;
 const STEP_W = 13;
+
+/**
+ * Where the playhead is, in steps, or null when nothing is sounding.
+ *
+ * Playback starts AT the loop's first step, so elapsed time wraps straight
+ * into the window -- no offset to carry. Without a loop it is elapsed time.
+ */
+function edPlayStep(m) {
+  if (!edPlay) return null;
+  const t = ctx.currentTime - edPlay.startedAt;
+  if (t < 0) return null;
+  const lp = edPlay.loop;
+  const at = lp ? lp.start + (t % (lp.end - lp.start)) : t;
+  const st = at / (60 / m.bpm / 4);
+  return st <= m.bars * m.beats ? st : null;
+}
+
+const edClearLive = () => { for (const row of edRows.values()) row.classList.remove('live'); };
+
+/**
+ * Light the track rows that have a note sounding right now.
+ *
+ * What counts is what you can HEAR, not what is written: a muted track, or
+ * the one being recorded into, is not in the mix and does not light up.
+ */
+function edPaintLive(m) {
+  const head = edPlayStep(m);
+  for (const [id, row] of edRows) {
+    const v = m.voices.find((x) => x.id === id);
+    const audible = head != null && v && id !== edPlay?.silent
+      && (edSolo.size ? edSolo.has(id) : !edMute.has(id));
+    row.classList.toggle('live',
+      !!audible && v.notes.some((n) => n.step <= head && head < n.step + n.len));
+  }
+}
+
+/** Keep the playhead on screen, without stealing the scroll while it is in view. */
+function edScrollTo(box, head) {
+  if (head == null) return;
+  const x = head * STEP_W;
+  if (x < box.scrollLeft + 40 || x > box.scrollLeft + box.clientWidth - 80) {
+    box.scrollLeft = Math.max(0, x - box.clientWidth * 0.3);
+  }
+}
 
 function edPitchRange(m) {
   const all = m.voices.flatMap((v) => v.notes.map((n) => n.midi)).filter((x) => x != null);
@@ -1664,6 +1724,13 @@ function drawRoll(cv, m) {
   const g = cv.getContext('2d');
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, w, h);
+
+  const accent = era === '8bit' ? '#ffb74d' : '#6fe6ff';
+  // Which notes are under the playhead this frame. A note you can hear is
+  // drawn differently from one you cannot, which is the whole reason to watch
+  // the roll rather than the clock.
+  const head = edPlayStep(m);
+  const sounding = (n) => head != null && n.step <= head && head < n.step + n.len;
 
   // black-key rows, so pitch is readable without a keyboard down the side
   for (let r = 0; r < rows; r++) {
@@ -1693,9 +1760,9 @@ function drawRoll(cv, m) {
   // other tracks as ghosts, so you can see what you are playing against
   for (const v of m.voices) {
     if (v.id === edTrack || v.kind === 'drum' || v.kind === 'chord') continue;
-    g.fillStyle = 'rgba(139,154,167,.20)';
     for (const n of v.notes) {
       if (n.midi == null) continue;
+      g.fillStyle = sounding(n) ? 'rgba(214,224,232,.62)' : 'rgba(139,154,167,.20)';
       g.fillRect(n.step * STEP_W + 1, (hi - n.midi) * ROW_H + 1, n.len * STEP_W - 2, ROW_H - 2);
     }
   }
@@ -1704,30 +1771,57 @@ function drawRoll(cv, m) {
   if (v) {
     for (const n of v.notes) {
       const y = n.midi != null ? (hi - n.midi) * ROW_H : h - ROW_H;
-      g.fillStyle = era === '8bit' ? '#ffb74d' : '#6fe6ff';
+      const on = sounding(n);
+      // White and lit, not merely a lighter shade of the era colour: at nine
+      // pixels a row, hue alone does not carry.
+      if (on) { g.shadowColor = accent; g.shadowBlur = 9; }
+      g.fillStyle = on ? '#ffffff' : accent;
       g.fillRect(n.step * STEP_W + 1, y + 1, n.len * STEP_W - 2, ROW_H - 2);
+      g.shadowBlur = 0;
       g.fillStyle = 'rgba(0,0,0,.45)';
       g.fillRect((n.step + n.len) * STEP_W - 3, y + 1, 2, ROW_H - 2);
     }
   }
+  // The loop window, drawn OVER the notes: what falls outside it is dimmed,
+  // so the bars that will actually come round again are the ones you can read.
+  if (edLoop && edSel) {
+    const a = edSel.from * m.beats * STEP_W;
+    const b = edSel.to * m.beats * STEP_W;
+    g.fillStyle = 'rgba(10,13,17,.66)';
+    g.fillRect(0, 0, a, h);
+    g.fillRect(b, 0, w - b, h);
+    // Green, matching the LOOP button, and deliberately not an era colour:
+    // the notes are already orange or cyan and the frame around them should
+    // not read as one of them.
+    g.fillStyle = '#6dffa8';
+    g.fillRect(a, 0, 2, h);
+    g.fillRect(b - 2, 0, 2, h);
+    g.globalAlpha = 0.4;
+    g.fillRect(a, 0, b - a, 2);
+    g.fillRect(a, h - 2, b - a, 2);
+    g.globalAlpha = 1;
+  }
   // playhead
-  if (edPlay) {
-    const t = (ctx.currentTime - edPlay.startedAt);
-    const st = t / (60 / m.bpm / 4);
-    if (st >= 0 && st <= steps) {
-      g.fillStyle = '#fff';
-      g.fillRect(st * STEP_W, 0, 1.5, h);
-    }
+  if (head != null) {
+    g.shadowColor = '#ffffff'; g.shadowBlur = 8;
+    g.fillStyle = '#fff';
+    g.fillRect(head * STEP_W - 1, 0, 2, h);
+    g.shadowBlur = 0;
   }
 }
 
 function edStopPlay() {
   if (edPlay) { try { edPlay.src.stop(); } catch {} edPlay = null; }
+  edClearLive();
 }
 
 async function edRender(m) {
   const text = ED.toText(m);
-  const bufs = await buffers('track', `ed-${m.id}-${edDirty}-${Date.now()}`, {}, null, text);
+  // Keyed on the score itself. The renderer is deterministic, so the same
+  // notes give the same audio -- which makes pressing PLAY again, or
+  // restarting a loop after moving its bars, a cache hit rather than another
+  // trip through the worker.
+  const bufs = await buffers('track', `ed-${m.id}-${hash(text)}`, {}, null, text);
   return bufs[ERAS.indexOf(m.era)];
 }
 
@@ -1826,6 +1920,7 @@ function editorView() {
   // --- tracks --------------------------------------------------------------
   const grid = el('div', 'ed');
   const trk = el('div', 'trk');
+  edRows.clear();
   for (const v of m.voices) {
     const row = el('div', `row${v.id === edTrack ? ' sel' : ''}${v.id === edArmed ? ' armed' : ''}`);
     row.append(el('div', 'nm', `${esc(v.id)}<small>${esc(v.inst)} · mix ${v.mix}</small>`));
@@ -1840,6 +1935,7 @@ function editorView() {
     btns.append(arm, mu, so);
     row.append(btns);
     row.onclick = () => { edTrack = v.id; render(); };
+    edRows.set(v.id, row);
     trk.append(row);
   }
   const addRow = el('div', 'row');
@@ -1915,7 +2011,12 @@ function editorView() {
   // --- transport and bar operations ---------------------------------------
   const bar = el('div', 'edbar');
   const playBtn = el('button', 'btn', '▶ PLAY');
+  playBtn.id = 'edplay';
   const stopBtn = el('button', 'btn tiny', '■');
+  stopBtn.id = 'edstop';
+  const loopBtn = el('button', `btn tiny loop${edLoop ? ' on' : ''}`, 'LOOP');
+  loopBtn.id = 'edloop';
+  loopBtn.title = 'Repeat the bar range instead of playing to the end (L)';
   const recBtn = el('button', 'recbtn', '● OVERDUB');
   const selLabel = el('span', 'meta', '');
   const insBtn = el('button', 'btn tiny', 'INSERT BAR');
@@ -1925,14 +2026,22 @@ function editorView() {
   const selTo = el('input'); selTo.type = 'number'; selTo.min = '1'; selTo.style.width = '58px';
   selFrom.value = String((edSel?.from ?? 0) + 1);
   selTo.value = String(edSel?.to ?? m.bars);
-  const readSel = () => {
+  let selTimer = 0;
+  const readSel = (typed = false) => {
     const f = Math.max(0, (+selFrom.value || 1) - 1);
     const t = Math.min(m.bars, Math.max(f + 1, +selTo.value || m.bars));
     edSel = { from: f, to: t };
     selLabel.textContent = `bars ${f + 1}–${t}`;
     drawRoll(cv, m);
+    // A loop already running is chasing the old bars. A buffer source's loop
+    // points are fixed once it is playing, so the only way to follow them is
+    // to start again -- when the typing stops, not once per keystroke.
+    if (typed && edLoop && edPlay && !rec.running) {
+      clearTimeout(selTimer);
+      selTimer = setTimeout(() => startPlay(null), 260);
+    }
   };
-  selFrom.oninput = readSel; selTo.oninput = readSel;
+  selFrom.oninput = () => readSel(true); selTo.oninput = () => readSel(true);
   readSel();
 
   insBtn.onclick = () => { ED.insertBars(m, edSel.from, 1); edDirty = true; render(); };
@@ -1942,31 +2051,75 @@ function editorView() {
     edDirty = true; drawRoll(cv, m);
   };
 
-  let raf2 = 0;
-  const follow = () => { if (!edPlay) { raf2 = 0; return; } drawRoll(cv, m); raf2 = requestAnimationFrame(follow); };
+  const follow = () => {
+    if (!edPlay) { edRaf = 0; edClearLive(); drawRoll(cv, m); return; }
+    drawRoll(cv, m);
+    edPaintLive(m);
+    edScrollTo(rollBox, edPlayStep(m));
+    edRaf = requestAnimationFrame(follow);
+  };
+
+  /** The seconds of the render the loop covers, or null when LOOP is off. */
+  const loopWindow = () => {
+    if (!edLoop || !edSel) return null;
+    const stepTime = 60 / m.bpm / 4;
+    return { start: edSel.from * m.beats * stepTime, end: edSel.to * m.beats * stepTime };
+  };
+
   const startPlay = async (recordInto) => {
+    // Two PLAYs in flight would leave the first one's source running with
+    // nothing holding on to it -- and a LOOPING orphan never ends by itself.
+    const mine = ++edSeq;
     edStopPlay();
     const keep = { ...m, voices: m.voices.filter((v) => (edSolo.size ? edSolo.has(v.id) : !edMute.has(v.id))
       && v.id !== recordInto) };
     const buf = await edRender(keep);
+    if (mine !== edSeq) return null;
     const c2 = audio();
     const src = c2.createBufferSource();
     src.buffer = buf; src.connect(master);
+    let lp = loopWindow();
+    // The render runs past the last bar so the tail is not cut off, so the
+    // window is clamped to the buffer rather than trusted against it.
+    if (lp) lp.end = Math.min(lp.end, buf.duration);
+    if (lp && lp.end - lp.start < 0.05) lp = null;
+    if (lp) { src.loop = true; src.loopStart = lp.start; src.loopEnd = lp.end; }
     const startAt = c2.currentTime + 0.15;
-    src.start(startAt);
-    edPlay = { src, startedAt: startAt };
-    src.onended = () => { if (edPlay?.src === src) { edPlay = null; drawRoll(cv, m); } };
-    if (!raf2) follow();
+    src.start(startAt, lp ? lp.start : 0);
+    edPlay = { src, startedAt: startAt, loop: lp, silent: recordInto || null };
+    // A looping source never ends, so this only fires when one plays out.
+    src.onended = () => { if (edPlay?.src === src) { edPlay = null; edClearLive(); drawRoll(cv, m); } };
+    if (!edRaf) follow();
     return startAt;
   };
   playBtn.onclick = () => startPlay(null);
+  loopBtn.onclick = () => {
+    edLoop = !edLoop;
+    loopBtn.classList.toggle('on', edLoop);
+    // Take effect on what is already sounding rather than at the next PLAY.
+    // Restarting drops you at the loop's first bar, which is where you were
+    // asking to listen anyway.
+    if (edPlay && !rec.running) startPlay(null);
+    else drawRoll(cv, m);
+  };
   stopBtn.onclick = () => { edStopPlay(); rec.running = false; recBtn.classList.remove('on'); recBtn.textContent = '● OVERDUB'; drawRoll(cv, m); };
   recBtn.onclick = async () => {
     if (rec.running) {
+      const lp = edPlay?.loop || null;
       rec.stop();
       edStopPlay();
       recBtn.classList.remove('on'); recBtn.textContent = '● OVERDUB';
-      const q = quantise(rec.events, { bpm: m.bpm, beats: m.beats, grid: 1 });
+      // Loop recording. The take is timed from the loop's first step, so each
+      // pass has to be folded back into the window and then written from that
+      // step -- otherwise the second time round lands after the song instead
+      // of over it. A note held across the seam ends at the seam.
+      const win = lp ? lp.end - lp.start : 0;
+      const events = lp ? rec.events.map((e) => {
+        const st = e.start % win;
+        return { note: e.note, start: st, end: st + Math.min(e.end - e.start, win - st) };
+      }) : rec.events;
+      const off = lp ? Math.round(lp.start / (60 / m.bpm / 4)) : 0;
+      const q = quantise(events, { bpm: m.bpm, beats: m.beats, grid: 1 });
       const target = edArmed || edTrack;
       const v = m.voices.find((x) => x.id === target);
       if (v) {
@@ -1980,7 +2133,7 @@ function editorView() {
             const midiN = ED.toModel(loadScore(
               `@track t\n bpm 120\n beats 4\n era 8bit\n@voice a inst=lead mix=0.2\n  ${cell}  -   -   - \n`, 't',
             )).voices[0].notes[0]?.midi;
-            if (midiN != null) ED.setNote(m, into.id, step, midiN, len);
+            if (midiN != null) ED.setNote(m, into.id, step + off, midiN, len);
           });
         });
         edDirty = true;
@@ -1991,11 +2144,12 @@ function editorView() {
     if (!edArmed && !edTrack) return;
     await ensureLive();
     const startAt = await startPlay(edArmed || edTrack);
+    if (startAt == null) return;
     rec.start(startAt);
     recBtn.classList.add('on'); recBtn.textContent = '■ STOP';
   };
 
-  bar.append(playBtn, stopBtn, recBtn, info('OVERDUB',
+  bar.append(playBtn, stopBtn, loopBtn, recBtn, info('OVERDUB',
     'Plays the other tracks and records what you play into the armed one. Arm a track with the '
     + 'round button beside its name, or make a new one.'),
     el('span', 'sp'),
@@ -2004,10 +2158,14 @@ function editorView() {
   c.append(bar);
   c.append(el('div', 'hint',
     'Click to add a note, drag it to move, drag its right edge to lengthen, alt-click or '
-    + 'right-click to delete. INSERT and DELETE act on the bar range; CLEAR empties it on the '
-    + 'selected track only.'));
+    + 'right-click to delete. INSERT, DELETE and LOOP act on the bar range; CLEAR empties it on '
+    + 'the selected track only. Whatever is sounding lights up as it plays.'));
 
-  requestAnimationFrame(() => drawRoll(cv, m));
+  // Selecting a track or arming one rebuilds this view, and with it the
+  // canvas. Hand the follow loop to the new one, or the playhead freezes on a
+  // canvas nobody can see while the audio plays on.
+  cancelAnimationFrame(edRaf); edRaf = 0;
+  requestAnimationFrame(() => { if (edPlay) follow(); else drawRoll(cv, m); });
   return c;
 }
 
@@ -2031,6 +2189,11 @@ const setCount = (shown, total) => {
 function render() {
   const main = $('#main');
   main.innerHTML = '';
+
+  // Leaving the editor takes its transport with it. Its follow loop is drawing
+  // into a canvas that is about to be thrown away, and a loop left running
+  // would play on underneath the track player on the next tab.
+  if (tab !== 'editor') { cancelAnimationFrame(edRaf); edRaf = 0; edStopPlay(); }
 
   if (tab === 'tracks') {
     const g = el('div', 'grid');
@@ -2175,6 +2338,13 @@ addEventListener('keydown', (e) => {
   if (e.target.matches('input,textarea')) {
     if (e.key === 'Escape') { e.target.value = ''; query = ''; e.target.blur(); render(); }
     return;
+  }
+  // The editor has a transport of its own. On its tab the keys drive that
+  // one, not the track player sitting on another tab.
+  if (tab === 'editor') {
+    if (e.key === ' ') { e.preventDefault(); $('#edplay')?.click(); return; }
+    if (e.key.toLowerCase() === 'l') { $('#edloop')?.click(); return; }
+    if (e.key === 'Escape') { $('#edstop')?.click(); return; }
   }
   if (e.key === '/') { e.preventDefault(); $('#q').focus(); return; }
   if (e.key === ' ') { e.preventDefault(); $('#bplay')?.click(); }
